@@ -1,6 +1,7 @@
 # Install salmon
 
-##https://combine-lab.github.io/salmon/getting_started/#obtaining-salmon
+Salmon: https://combine-lab.github.io/salmon/getting_started/#obtaining-salmon
+
 conda config --add channels conda-forge
 
 conda config --add channels bioconda
