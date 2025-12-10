@@ -1,4 +1,4 @@
-#!/bin/bash conda deactivate conda activate salmon
+#!/bin/bash
 
 # Should be root directory of this repo
 datapath='/home/bbitarello/scratch'
