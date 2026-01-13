@@ -7,3 +7,12 @@ conda config --add channels conda-forge
 conda config --set channel_priority strict
 
 conda install multiqc
+
+
+
+# for fastp results:
+cd /home/bbitarello/scratch
+mkdir -p multiqc/fastp
+conda activate py3.13
+multiqc fastp --force -outdir multiqc/fastp
+
