@@ -1,15 +1,34 @@
 # Ehux_Ehv201
 
-<<<<<<< HEAD
-# download genomic/annotation data
-bash downloads.sh
+# 0: download genomic/annotation data
+bash 0-get-downloads.sh
 
-# Install salmon
+##also: #KEGG pathway: https://rest.kegg.jp/link/ehx/pathway
+
+# Salmon
+
 salmon/README.md
 
-# prep salmon decoys
-=======
+## Install salmon
 
-#KEGG pathway: https://rest.kegg.jp/link/ehx/pathway
->>>>>>> ba7e8b1d9c0229adb62e6058ec72af194a6fae26
+##Salmon: https://combine-lab.github.io/salmon/getting_started/#obtaining-salmon
+
+conda config --add channels conda-forge
+
+conda config --add channels bioconda
+
+conda create -n salmon salmon
+
+conda activate salmon
+
+## prep salmon decoys
+
+bash 01-runDecoy.sh
+
+## run salmon
+
+
+# 3. DGE
+
+
 

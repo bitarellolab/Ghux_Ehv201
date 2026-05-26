@@ -4,8 +4,12 @@
 
 
 # Should be root directory of this repo
+<<<<<<< HEAD
 datapath='/home/bbitarello/scratch'
 cd $datapath
+=======
+datapath='~/bbitarello/scratch'
+>>>>>>> e853f533228802e8ab14c72ccbd13f2e5ba2d0bf
 mypath=$(pwd)
 mypath2=$(pwd)/salmonI
 

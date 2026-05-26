@@ -1371,8 +1371,8 @@ uniprot_host3<-uniprot_host3 |> dplyr::mutate(Uniprot_Entry = case_when(is.na(En
 
 uniprot_host3 |> group_by(Uniprot_Entry) |> tally() |> dplyr::filter(n>1)
 
-annot_host3<-left_join(annot_host, uniprot_host3)
-annot_host3 |> dplyr::filter(UniqueLocusTag==F) |> dplyr::select(locus_tag:Uniprot_Entry) |>dplyr::select(-UniqueLocusTag) annot_host3<-isGOannot(annot_host3, cols = c("GO_BP", "GO_CC", "GO_MF", "GO IDs"))
+#annot_host3<-left_join(annot_host, uniprot_host3)
+#annot_host3 |> dplyr::filter(UniqueLocusTag==F) |> dplyr::select(locus_tag:Uniprot_Entry) |>dplyr::select(-UniqueLocusTag) annot_host3<-isGOannot(annot_host3, cols = c("GO_BP", "GO_CC", "GO_MF", "GO IDs"))
 
 #note: add this version above of uniprot_host_comb to annot-host-ext.xlsx                             
                              
@@ -1397,7 +1397,7 @@ length(unique(polara_annot$locus_tag))
 polara_annot<-polara_annot |> dplyr::filter(tx_id %in% keep_these)
 nrow(polara_annot)
 nrow(annot_host)
-11111 stopped here
+#11111 stopped here
 ###
 annot_host2 <- left_join(annot_host, uniprot_host_comb, multiple = 'first')
 dup_annot2 <- annot_host2 |> group_by(gene_id) |> tally() |>dplyr::filter(n >
