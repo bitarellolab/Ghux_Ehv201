@@ -6,6 +6,7 @@
 ## download host whole genome fasta
 
 base_dir="/home/bbitarello" # change as needed
+cd ${base_dir}
 
 #download ensembl protists v60 (when project began) and v62 (when project ended)
 for vers in 60 62;
