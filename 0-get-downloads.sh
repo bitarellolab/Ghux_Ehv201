@@ -5,10 +5,13 @@
 ## top link: https://protists.ensembl.org/Emiliania_huxleyi/Info/Index
 ## download host whole genome fasta
 
+base_dir="/home/bbitarello" # change as needed
+
+#download ensembl protists v60 (when project began) and v62 (when project ended)
 for vers in 60 62;
 do
-mkdir -p ~/scratch/CCMP1516/v${vers}/
-cd ~/scratch/CCMP1516/v${vers}
+mkdir -p ${base_dir}/scratch/CCMP1516/v${vers}/
+cd ${base_dir}/scratch/CCMP1516/v${vers}
 
 wget "http://ftp.ensemblgenomes.org/pub/protists/release-${vers}/fasta/emiliania_huxleyi/dna/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.dna.toplevel.fa.gz"
 
@@ -30,8 +33,8 @@ done
 ## zdiff Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.cdna.all.fa.gz ../v62/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.cdna.all.fa.gz > zdiff.out
 #grep ">" zdiff.out|wc #12
 
-mkdir -p ~/scratch/CCMP1516/p10k/
-cd ~/scratch/CCMP1516/p10k/
+mkdir -p ~/scratch/CCMP1516/ncbi/
+cd ~/scratch/CCMP1516/ncbi/
 #https://ngdc.cncb.ac.cn/p10k/sample/P10K-NCBI-001245
 
 wget "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/372/725/GCA_000372725.1_Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0/GCA_000372725.1_Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0_genomic.gff.gz"
