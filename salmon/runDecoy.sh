@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Goals:
+
+
 # Should be root directory of this repo
 datapath='/home/bbitarello/scratch'
 cd $datapath
