@@ -4,7 +4,7 @@
 
 
 # Should be root directory of this repo
-datapath='/home/bbitarello/scratch'
+datapath='~/bbitarello/scratch'
 mypath=$(pwd)
 mypath2=$(pwd)/salmon/salmonq_all
 
