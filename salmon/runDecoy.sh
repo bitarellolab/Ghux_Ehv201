@@ -1,5 +1,8 @@
 #!/bin/bash conda deactivate conda activate salmon
 
+# Goals:
+
+
 # Should be root directory of this repo
 datapath='/home/bbitarello/scratch'
 mypath=$(pwd)
