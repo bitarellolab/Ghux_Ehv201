@@ -1,18 +1,5 @@
-# Install salmon
-
-Salmon: https://combine-lab.github.io/salmon/getting_started/#obtaining-salmon
-
-conda config --add channels conda-forge
-
-conda config --add channels bioconda
-
-conda create -n salmon salmon
-
-conda activate salmon
-
-
 # Make index with decoys
-./runDecoys.sh
+./01-runDecoys.sh
 
 
 # Make metadata

@@ -1,34 +1,48 @@
 # Ehux_Ehv201
 
-# 0: download genomic/annotation data
-bash 0-get-downloads.sh
+Data processing was run on a Linux (Ubuntu) server with multiple cores. 
 
-##also: #KEGG pathway: https://rest.kegg.jp/link/ehx/pathway
+Some of the plots were ran in R on a Mac.
+
+# 0: download genomic/annotation data and install everything
+./0-get-downloads.sh
+
+./0-install.sh
+
+##KEGG pathway: https://rest.kegg.jp/link/ehx/pathway saved as KEGG-pathway.txt
+
+
+# fastp
+
+##https://github.com/opengene/fastp
+
+sbatch 01-runFastp.slurm
+
+## ./check-slurm-status <jobid>
 
 # Salmon
 
-salmon/README.md
+##https://github.com/COMBINE-lab/salmon
 
-## Install salmon
+# Make index with decoys
 
-##Salmon: https://combine-lab.github.io/salmon/getting_started/#obtaining-salmon
-
-conda config --add channels conda-forge
-
-conda config --add channels bioconda
-
-conda create -n salmon salmon
-
-conda activate salmon
-
-## prep salmon decoys
-
-bash 01-runDecoy.sh
-
-## run salmon
+./02-runDecoys.sh
 
 
-# 3. DGE
+# Make metadata
+./02-MakeMetadata.R
+
+# Run salmon quantification
+sbatch 02-runSalmon.slurm
+
+
+
+# 3. Multiqc
+
+
+# 4. DGE
+
+
 
 
 
