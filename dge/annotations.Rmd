@@ -9,17 +9,17 @@ output:
 ```{r, setup, include=FALSE}
 #Setup
 knitr::opts_knit$set(
-  root.dir = '/Users/bbitarello/Documents/GitHub/rna-seq-host-virus', 
+  root.dir = '/home/bbitarello/projects/Ehux_Ehv201/', 
   error = T,
   cache = T, 
   echo = T,
   fig.showtext = TRUE,
   tidy = TRUE,
   collapse = TRUE)
-#base path
-(base.path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
-(base.path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"))
-setwd(path.expand(getwd()))
+# paths
+(base.path <- path.expand("~/scratch/dge-results/"))
+(base.path2 <- path.expand("~scratch/salmonQ-v1.11.4/ "))
+setwd(path.expand("~/projects/Ehux_Ehv201/"))
 
 # Setting up environment ===================================================
 # Clean environment
@@ -41,10 +41,12 @@ library(conflicted)
 conflicts_prefer(tidyr::unite)
 conflicts_prefer(dplyr::filter)
 #base path
-source("dge/scripts/Functions.R")
-(base.path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
-setwd("~/Documents/GitHub/rna-seq-host-virus/")
-(base.path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"))
+source("dge/Functions.R")
+(base.path <- path.expand("~/scratch/dge-results/"))
+(base.path2 <- path.expand("~scratch/salmonQ-v1.11.4/ "))
+#(base.path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
+#setwd("~/Documents/GitHub/rna-seq-host-virus/")
+#(base.path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"))
 conflicts_prefer(dplyr::select)
 library(xlsx)
 ```

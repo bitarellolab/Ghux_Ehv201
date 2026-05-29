@@ -33,7 +33,13 @@ systemfonts::fonts_as_import(family = "Roboto Condensed")
 systemfonts::match_font("Roboto Condensed")
 #extrafont::font_import(paths= "/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/hrbrthemes/fonts/", recursive = T, prompt = F)
 
-
+  # For tibble decimal points, no rounding
+  old <- options(
+    pillar.sigfig = 6,
+    pillar.print_max = 5,
+    pillar.print_min = 5,
+    pillar.advice = FALSE
+)
 
 # Colors ----
 
@@ -91,7 +97,6 @@ trt_vir_cols <- c(paired_cols[1:2], paired_cols[7:8])
 #my_colors <- colorRampPalette(c("cyan", "deeppink3"))
 htMapCols<-colorRampPalette(rev(viridisLite::magma(n=256,alpha = 1)))(100)[-c(90:100)]
 #htMapCols <- 
-library(circlize)
 l1<-length(htMapCols)
 col_fun = colorRamp2(breaks = c(-3, 0, 3), colors = c(htMapCols[1],htMapCols[l1/2], htMapCols[l1]))
 col_fun = colorRamp2(breaks = c(-3, 0, 3), colors = c(htMapCols[1],htMapCols[l1/2], htMapCols[l1]), space = "RGB")

@@ -1,3 +1,6 @@
 multiqc/fastp/*
 salmon/salmonq_all/*
 .Rproj.user
+MegaSAS.log
+test.slurm
+test.out

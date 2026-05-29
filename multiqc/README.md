@@ -1,6 +1,5 @@
-#install multiqc
 
-basepath="home/bbitarello"
+basepath="/home/bbitarello/scratch/"
 
 # for fastp results:
 cd ${basepath}/scratch

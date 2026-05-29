@@ -1,24 +1,24 @@
 #!/bin/bash
-#SBATCH --job-name=salmon-quant
+#SBATCH --job-name=salmonA
 #SBATCH --mem=40gb
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=12
 #SBATCH -p high
 #SBATCH --array=1-80
-#SBATCH -o /home/bbitarello/scratch/final/logs/2026/salmon-quant.%A-%a.log
-#SBATCH -e /home/bbitarello/scratch/final/logs/2026/salmon-quant.%A-%a.err
+#SBATCH -o /home/bbitarello/scratch/logs/2026/salmonQ.%A-%a.log
+#SBATCH -e /home/bbitarello/scratch/logs/2026/salmonQ.%A-%a.err
 
 
 # INPUT and OUTPUT
 DECOYPATH="/home/bbitarello/scratch/salmonI/decoyIndex"
 # OUTPUT (change to decoy2 when using that)
-OUTDIR="/home/bbitarello/scratch/salmon-quant-2026"
+OUTDIR="/home/bbitarello/scratch/salmonQ-v1.11.4"
 FILEEND=".fp.fq.gz"
 
-mkdir -p ${OUTDIR}
-FFASTQDIR="/home/bbitarello/scratch/fastp"
+#mkdir -p ${OUTDIR}
+FFASTQDIR="/home/bbitarello/scratch/fastp/2026"
 METADATA="/home/bbitarello/scratch/sample_ids.tsv"
 SAMPLE=$( awk -v ARRID="$SLURM_ARRAY_TASK_ID" 'FNR==ARRID { print $1 }' $METADATA )
-cat $SAMPLE
+echo $SAMPLE
 #Load environment and activate conda environment
 source ~/.bashrc
 eval "$(conda shell.bash hook)"
@@ -28,7 +28,7 @@ conda activate /home/bbitarello/miniconda3/envs/py3.13
 
 run_salmon() {
 salmon quant \
---threads 20 \
+--threads 12 \
 --index "${DECOYPATH}" \
 --libType A \
 --validateMappings \

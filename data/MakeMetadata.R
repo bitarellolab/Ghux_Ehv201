@@ -1,5 +1,7 @@
+#!/opt/R/bin/Rscript
 library(tidyverse)
 library(readxl)
+conflict_prefer("filter", "dplyr")
 
 study_info <- 
   read_excel("AAA-StudyInfo.xls") |>
@@ -8,7 +10,7 @@ study_info <-
 #make metadata
 meta_data <- 
   study_info |>
-  select(COND_name, SAMP_sid, RULA_Run, RULA_Lane, RULA_Barcode) |>
+  dplyr::select(COND_name, SAMP_sid, RULA_Run, RULA_Lane, RULA_Barcode) |>
   separate(COND_name, c("treatment", "virus", "timept"), sep = " ") |>
   mutate(timept = tolower(timept),
          timept = str_replace(timept, "tp", "t"),
@@ -23,4 +25,4 @@ meta_data <-
 meta_data
 
 
-write_tsv(meta_data, "./metadata.tsv")
+write_tsv(meta_data, "metadata.tsv")

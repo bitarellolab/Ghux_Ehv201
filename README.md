@@ -28,17 +28,15 @@ sbatch 01-runFastp.slurm
 
 ./02-runDecoys.sh
 
-
-# Make metadata
-./02-MakeMetadata.R
-
 # Run salmon quantification
+
 sbatch 02-runSalmon.slurm
 
 
 
 # 3. Multiqc
 
+./runMultiQC.sh
 
 # 4. DGE
 
