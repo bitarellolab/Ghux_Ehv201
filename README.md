@@ -40,6 +40,8 @@ sbatch 02-runSalmon.slurm
 
 # 4. DGE
 
+see dge/README.md
+
 
 
 
