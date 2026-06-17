@@ -4,3 +4,6 @@ salmon/salmonq_all/*
 MegaSAS.log
 test.slurm
 test.out
+# pixi environments
+.pixi/*
+!.pixi/config.toml
