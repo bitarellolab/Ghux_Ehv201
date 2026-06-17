@@ -17,9 +17,10 @@ knitr::opts_knit$set(
   tidy = TRUE,
   collapse = TRUE)
 # paths
-(base.path <- path.expand("~/scratch/dge-results/"))
-(base.path2 <- path.expand("~scratch/salmonQ-v1.11.4/ "))
-setwd(path.expand("~/projects/Ehux_Ehv201/"))
+(base.path <- path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
+(base.path2 <- path.expand("~/Documents/Ehux-for-pub/salmonQ-v1.11.4/"))
+#setwd(path.expand("~/projects/Ehux_Ehv201/")) #rosalind
+setwd(path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
 
 # Setting up environment ===================================================
 # Clean environment
@@ -37,18 +38,19 @@ library(tidyverse)
 library(biomaRt)
 library(data.table)
 library(conflicted)
+library(xlsx)
 })
 conflicts_prefer(tidyr::unite)
 conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(base::remove)
+
 #base path
 source("dge/Functions.R")
-(base.path <- path.expand("~/scratch/dge-results/"))
-(base.path2 <- path.expand("~scratch/salmonQ-v1.11.4/ "))
 #(base.path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
 #setwd("~/Documents/GitHub/rna-seq-host-virus/")
 #(base.path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"))
-conflicts_prefer(dplyr::select)
-library(xlsx)
+
 ```
 
 # Host 
@@ -65,7 +67,7 @@ Sys.setenv(VROOM_CONNECTION_SIZE = 500000L)
 
 #host gff file
 gff_host <-
-  "https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-60/gff3/emiliania_huxleyi/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.60.gff3.gz" |>
+  "https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-62/gff3/emiliania_huxleyi/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.62.gff3.gz" |>
   read_tsv(comment = "#",
            col_names = FALSE,
            col_types = cols())
@@ -92,6 +94,7 @@ salmon_files <- readRDS(paste0(base.path, "data/salmon_files_76samp.RDS"))
 salmon_df <-
   salmon_files |>
   map_df(read_tsv, .id = "sample_name", col_types = cols())
+
 keep_these <- unique(salmon_df$Name)
 remove(salmon_df, coldata, salmon_files)
 length(keep_these) # 37781
@@ -101,7 +104,9 @@ keep_these_vir <- keep_these[grepl("^JF", keep_these)]
 keep_these_host <- keep_these[!(grepl("^JF", keep_these))]
 length(keep_these_host) #37334 (host genes)
 
-gff_host |> dplyr::filter(grepl("ID=transcript:", X9))  |> nrow() #39798 update 12/2025: 38798
+gff_host |> 
+  dplyr::filter(grepl("ID=transcript:", X9))  |> 
+  nrow() #39798 update 12/2025: 38798
 
 annot_host <-
   gff_host |>
@@ -123,19 +128,35 @@ annot_host <-
 nrow(annot_host) # 38798
 gc()
 #check
-annot_host |> group_by(tx_id) |> tally() |> dplyr::filter(n > 1)
-annot_host |> group_by(tx_name) |> tally() |> dplyr::filter(n > 1) |> nrow()
-annot_host |> group_by(locus_tag) |> tally() |> dplyr::filter(n > 1) |> nrow()
+annot_host |> 
+  group_by(tx_id) |> 
+  tally() |> 
+  dplyr::filter(n > 1) #0
+annot_host |> 
+  group_by(locus_tag) |> 
+  tally() |> 
+  dplyr::filter(n > 1) |> 
+  nrow() # 6/16/26: 9
+
+annot_host |> 
+  group_by(tx_name, .drop = F) |> 
+  tally() |> 
+  dplyr::filter(n > 1) |> 
+  nrow() # 6/16/26: 31
 
 #filter to keep only genes in salmon output
-annot_host <- annot_host |> dplyr::filter(tx_id %in% keep_these_host)
+annot_host <- annot_host |> 
+  dplyr::filter(tx_id %in% keep_these_host)
 nrow(annot_host) # 37334
-table(keep_these_host %in% annot_host$tx_id)
+table(keep_these_host %in% annot_host$tx_id) #TRUE 37334
 gc()
 #now continue
 #check
-(
-  dup_annot <- annot_host |> group_by(locus_tag) |> tally() |> dplyr::filter(n > 1) |> pull(locus_tag)
+(dup_annot <- annot_host |> 
+    group_by(locus_tag) |> 
+    tally() |> 
+    dplyr::filter(n > 1) |> 
+    pull(locus_tag)
 ) # 9 locus tags with more than one entry
 #all locus_tags with more than one entry have distinct tx_names and tx_ids.
 
@@ -144,30 +165,34 @@ annot_host |>
   dplyr::filter(locus_tag %in% dup_annot) |>
   group_by(tx_name) |>
   tally() |>
-  dplyr::filter(n > 1)
+  dplyr::filter(n > 1) #0
 annot_host |>
   dplyr::filter(locus_tag %in% dup_annot) |>
   group_by(tx_id) |>
   tally() |>
-  dplyr::filter(n > 1)
+  dplyr::filter(n > 1) #0
 # now check tx_name
 (
-  dup_annot2 <- annot_host |> group_by(tx_name) |> tally() |> dplyr::filter(n >
-                                                                              1) |> pull(tx_name)
+  dup_annot2 <- annot_host |> 
+    group_by(tx_name) |> 
+    tally() |> 
+    dplyr::filter(n > 1) |> pull(tx_name)
 )
 #all cases of duplicated tx_name have unique locus_tags.
 annot_host |>
   dplyr::filter(tx_name %in% dup_annot2) |>
   group_by(locus_tag) |>
   tally() |>
-  dplyr::filter(n > 1)
+  dplyr::filter(n > 1) #0
 #add a column for easy filtering
 annot_host <- annot_host |>
   mutate(UniqueLocusTag = case_when(
     locus_tag %in% dup_annot ~ FALSE,
     (locus_tag %in% dup_annot) == F ~ TRUE
   ))
-annot_host |> group_by(UniqueLocusTag) |> tally()
+annot_host |> 
+  group_by(UniqueLocusTag) |> 
+  tally() #false: 19, true: 37315
 
 #what types of elements are in the gff
 gff_host |>
@@ -187,7 +212,7 @@ annot_host <- annot_host |>
                 UniqueLocusTag,
                 everything())
 table(annot_host$source)
-nrow(annot_host)
+nrow(annot_host) #37334
 apply(annot_host, 2, function(x)
   length(unique(x)))
 apply(annot_host, 2, function(x)
@@ -196,28 +221,35 @@ apply(annot_host, 2, function(x)
 
 cdna_host <-
   Biostrings::readDNAStringSet(
-    "https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-60/fasta/emiliania_huxleyi/cdna/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.cdna.all.fa.gz"
+    "https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-62/fasta/emiliania_huxleyi/cdna/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.cdna.all.fa.gz"
   ) |>
   names()
 
 ncrna_host <-
   Biostrings::readDNAStringSet(
-    "http://ftp.ensemblgenomes.org/pub/protists/release-60/fasta/emiliania_huxleyi/ncrna/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.ncrna.fa.gz"
+    "http://ftp.ensemblgenomes.org/pub/protists/release-62/fasta/emiliania_huxleyi/ncrna/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.ncrna.fa.gz"
   ) |>
   names()
 
-host_tib <- tibble(
+(host_tib <- tibble(
   tx_id = cdna_host |>
     str_extract("^\\S+"),
   description = cdna_host |>
     str_extract("(?<=description:)[^;]+"),
-  gene_symbol = cdna_host |> str_extract("(?<=gene_symbol:)[^; ]+")
-)
-host_tib |> filter(!(is.na(gene_symbol)))
-host_tib |> filter(!(is.na(gene_symbol))) |> nrow() #842 w/ symbol
-host_tib <- host_tib |> mutate(description = gsub("Hypothetical", "hypothetical", description))
+  gene_symbol = cdna_host |> str_extract("(?<=gene_symbol:)[^; ]+"),
+  biotype = cdna_host |> 
+    str_extract("(?<=gene_biotype:)[^; ]+")
+))
+host_tib |> 
+  filter(!(is.na(gene_symbol)))
+host_tib |> 
+  filter(!(is.na(gene_symbol))) |> 
+  nrow() #842 w/ symbol
+host_tib <- host_tib |> 
+  mutate(description = gsub("Hypothetical", "hypothetical", description))
 nrow(host_tib) #39599
-host_tib <- host_tib |> dplyr::filter(tx_id %in% keep_these_host)
+host_tib <- host_tib |> 
+  dplyr::filter(tx_id %in% keep_these_host)
 nrow(host_tib) #37223
 #all the keep_these host genes not present in host tib are ncRNAs, which makes sense, so all good.
 keep_these_host[!(keep_these_host %in% host_tib$tx_id)] #111 ncRNAs
@@ -229,14 +261,18 @@ host_tib2 <- tibble(
   description = ncrna_host |>
     str_extract("(?<=description:)[^;\\[]+"),
   gene_symbol = ncrna_host |>
-    str_extract("(?<=gene_symbol:)[^; ]+")
+    str_extract("(?<=gene_symbol:)[^; ]+"),
+  biotype = ncrna_host |> 
+    str_extract("(?<=gene_biotype:)[^; ]+")
+  
 )
 nrow(host_tib2) #199 ncrna
 #trim trailing white space
 host_tib2 <- host_tib2 |>
   mutate(description = trimws(host_tib2$description))
 
-host_tib2 <- host_tib2 |> dplyr::filter(tx_id %in% keep_these_host)
+host_tib2 <- host_tib2 |> 
+  dplyr::filter(tx_id %in% keep_these_host)
 nrow(host_tib2) #111
 
 ### Sanity Checks
@@ -266,7 +302,7 @@ openxlsx::writeData(wb, sheet = "gff", temp)
 write_tsv(annot_host, file=paste0(base.path,"data/Annotations-host/annot_host_gff.tsv"))
 
 #clean up a bit
-remove(MyGoPlot, VolcanoFunc, temp, sh, MyPheatmapClust,cdna_host, ncrna_host,MyMeanSdPlot, MyUpsetPlot)
+remove(MyGoPlot, VolcanoFunc, temp, MyPheatmapClust,cdna_host, ncrna_host,MyMeanSdPlot, MyUpsetPlot)
 gc()
 getsizes()
 #
@@ -280,14 +316,15 @@ getsizes()
 ```{r, host-ncb}
 #ok for now
 ## From: https://www.ncbi.nlm.nih.gov/datasets/gene/GCF_000372725.1/
-ncbi_annot <- paste0(base.path, "data/Annotations-host/ncbi_dataset_host2.tsv") |>
+## From: https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000372725.1/
+ncbi_annot <- paste0(base.path, "data/Annotations-host/ncbi_refseq_ehux.tsv") |>
   read_tsv(show_col_types = FALSE) |>
   #remove pointless columns
   dplyr::select(-Chromosome)
-nrow(ncbi_annot) #38559
+nrow(ncbi_annot) #38549
 apply(ncbi_annot, 2, function(x)
   length(unique(x)))
-table(ncbi_annot$`Gene Type`)
+table(ncbi_annot$`Gene Type`) # 5 pseudogene
 
 #reorder and rename
 ncbi_annot <- ncbi_annot |>
@@ -312,16 +349,23 @@ apply(ncbi_annot, 2, function(x)
   sum(is.na(x)))
 #let's look at these 5 NAs in txName, refseq_prot, refseq_nuc, length_prot
 # this can also be simplified
-ncbi_annot |> dplyr::filter(is.na(refSeq_nuc)) |> group_by(biotype) |> count()
+ncbi_annot |> 
+  dplyr::filter(is.na(refSeq_nuc)) |> group_by(biotype) |> 
+  count()
 #ok, they are all pseudogenes
 #what about locus tags
-ncbi_annot |> dplyr::filter(is.na(locus_tag))
+ncbi_annot |> 
+  dplyr::filter(is.na(locus_tag)) |> group_by(biotype) |> 
+  count() #protein coding
 ## since there are only 10, will fix  these by hand...
-annot_host |> dplyr::filter(grepl("HXK2", tx_name))
-ncbi_annot |> dplyr::filter(Symbol == "HXK2")
+annot_host |> 
+  dplyr::filter(grepl("HXK2", tx_name))
+ncbi_annot |> 
+  dplyr::filter(Symbol == "HXK2")
 ncbi_annot[is.na(ncbi_annot$locus_tag), ][1, ]$locus_tag <- "EMIHUDRAFT_428156"
 #next
-ncbi_annot |> dplyr::filter(NCBI_Entrez_geneID == "17256807") |> pull(locus_tag)
+ncbi_annot |> 
+  dplyr::filter(NCBI_Entrez_geneID == "17256807") |> pull(locus_tag)
 ncbi_annot[is.na(ncbi_annot$locus_tag), ][1, ]$locus_tag <- "EMIHUDRAFT_437834"
 #next
 ncbi_annot |> dplyr::filter(NCBI_Entrez_geneID == ncbi_annot[is.na(ncbi_annot$locus_tag), ][1, ]$NCBI_Entrez_geneID) |> pull(locus_tag)
@@ -362,7 +406,8 @@ table(annot_host$locus_tag %in% ncbi_annot$locus_tag) #who are these missing 115
 #ok none are prot. coding
 annot_host[!(annot_host$locus_tag %in% ncbi_annot$locus_tag), ] |> group_by(biotype) |> tally()
 # filter ncbi_annot to contain only the salmon host genes (annot_host)
-ncbi_annot <- ncbi_annot |> dplyr::filter(locus_tag %in% annot_host$locus_tag)
+ncbi_annot <- ncbi_annot |> 
+  dplyr::filter(locus_tag %in% annot_host$locus_tag)
 nrow(ncbi_annot) #37219 (a little less than annot_host)
 table(ncbi_annot$locus_tag %in% annot_host$locus_tag)
 # TRUE
@@ -387,7 +432,7 @@ getsizes()
 ## Host ENA 
 ```{r, host-rna}
 #remove pointless columns
-host_ena<-"https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-61/tsv/emiliania_huxleyi/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.61.ena.tsv.gz" |> 
+host_ena<-"https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-62/tsv/emiliania_huxleyi/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.62.ena.tsv.gz" |> 
   read_tsv(show_col_types = FALSE) |> 
   dplyr::select(-c("species", "taxid"))
 nrow(host_ena) # 38798
@@ -412,7 +457,8 @@ table(annot_host$tx_id %in% host_ena$tx_id)
 #all host tx_ids are in this ena object. Good.
 nrow(host_ena) #38798
 length(keep_these_host) #37334
-host_ena<-host_ena |> dplyr::filter(tx_id %in% keep_these_host)
+host_ena<-host_ena |> 
+  dplyr::filter(tx_id %in% keep_these_host)
 table(host_ena$tx_id %in% annot_host$tx_id)
 # TRUE 
 #37334 
@@ -428,11 +474,13 @@ write_tsv(host_ena, file=paste0(base.path, "data/Annotations-host/ena_host.tsv")
 annot_host2<-left_join(annot_host, host_ena,by = c("locus_tag", "tx_id")) 
 annot_host2 |>  dplyr::select(locus_tag, tx_id, tx_name, biotype, everything())
 annot_host2<-annot_host2 |> mutate(biotype = sub("_", "-", biotype))
-
+annot_host2<-annot_host2 |> select(-scaffold)
 tmp<-annot_host2 |> group_by(locus_tag) |> tally(name = "NrTranscripts")
 annot_host2<-left_join(annot_host2, tmp)
-annot_host2<-annot_host2 |> arrange(locus_tag)
-annot_host2<-annot_host2 |> dplyr::select(tx_id, locus_tag, tx_name, protein_id, biotype, UniqueLocusTag, NrTranscripts, everything())
+annot_host2<-annot_host2 |> 
+  arrange(locus_tag)
+annot_host2<-annot_host2 |> 
+  dplyr::select(tx_id, locus_tag, tx_name, protein_id, biotype, UniqueLocusTag, NrTranscripts, everything())
 
 saveRDS(annot_host2,paste0(base.path, "data/Annotations-host/annot_host2.rds"))
 
@@ -486,16 +534,22 @@ identical(colnames(part1), colnames(part3))
 annot_host3<-bind_rows(part1, part3)
 remove(part1, part3);gc()
 #
-annot_host3<-annot_host3 |> rename(AllProts = IdenticalProts, AllTxs = IdenticalTranscripts)
+annot_host3<-annot_host3 |> 
+  rename(AllProts = IdenticalProts, AllTxs = IdenticalTranscripts)
 annot_host3 <- annot_host3 |> arrange(locus_tag)
 nrow(annot_host3) # 37334
+table(annot_host3$tx_id %in% keep_these_host)
 #colnames(annot_host3)
-annot_host3<-annot_host3 |> dplyr::select(tx_id, locus_tag, tx_name, protein_id, biotype, UniqueLocusTag, NrTranscripts, GeneName, TxName, Symbol, ProteinName,everything())
+annot_host3<-annot_host3 |> 
+  dplyr::select(tx_id, locus_tag, tx_name, protein_id, biotype, UniqueLocusTag, NrTranscripts, GeneName, TxName, Symbol, ProteinName,everything())
 
-annot_host3 |> dplyr::filter(TxName != GeneName) #none
-annot_host3 |> dplyr::filter(TxName != ProteinName) #none
+annot_host3 |> 
+  dplyr::filter(TxName != GeneName) #none
+annot_host3 |> 
+  dplyr::filter(TxName != ProteinName) #none
 #remove redundant columns
-annot_host3<-annot_host3 |> dplyr::select(-c("TxName", "ProteinName"))
+annot_host3<-annot_host3 |> 
+  dplyr::select(-c("TxName", "ProteinName"))
 #checks
 apply(annot_host3, 2, function(x) length(unique(x)))
 apply(annot_host3, 2, function(x) sum(is.na(x)))
@@ -503,6 +557,8 @@ apply(annot_host3, 2, function(x) sum(is.na(x)))
 
 saveRDS(annot_host3,paste0(base.path, "data/Annotations-host/annot_host3.rds"))
 write_tsv(annot_host3, paste0(base.path, "data/Annotations-host/tx_to_gene_host2.tsv"))
+#test
+data.table::fwrite(annot_host3, "data/Annotations-host/annot-host3.txt.gz", compress = "gzip",compressLevel = 8)
 
 temp<-as.data.frame(annot_host3);
 openxlsx::addWorksheet(wb, sheetName = "GffNcbiEnaCanonical")
@@ -557,10 +613,13 @@ fetchIDsAB <- protti::fetch_uniprot(uniprot_ids = c(proteomeA$accession,proteome
 )
 #--
 
-nrow(fetchIDsAB) # 98847
-fetchIDsAB <- fetchIDsAB |> mutate(refSeq_prot = xref_refseq)
-fetchIDsAB <- fetchIDsAB |> rename(KEGG_entry = xref_kegg)
-fetchIDsAB <- fetchIDsAB |> rename(Uniprot_accession = accession)
+nrow(fetchIDsAB) # 35868
+fetchIDsAB <- fetchIDsAB |> 
+  mutate(refSeq_prot = xref_refseq)
+fetchIDsAB <- fetchIDsAB |> 
+  rename(KEGG_entry = xref_kegg)
+fetchIDsAB <- fetchIDsAB |> 
+  rename(Uniprot_accession = accession)
 saveRDS(fetchIDsAB, file = paste0(base.path, "data/Annotations-host/prottifetchIDS.rds"))
 
 cols = colnames(fetchIDsAB |> dplyr::select(contains("go")))
@@ -583,7 +642,10 @@ fetchIDsAB <- fetchIDsAB |> dplyr::select(Uniprot_accession:gene_synonym,
                             GOAnnotAvail,
                             everything())
 fetchIDsAB |> 
-  filter(!is.na(gene_names)) |> group_by(gene_names) |> count() |> arrange(desc(n))
+  filter(!is.na(gene_names)) |> 
+  group_by(gene_names) |> 
+  count() |> 
+  arrange(desc(n))
 
 write_tsv(fetchIDsAB,
           file = paste0(base.path, "data/Annotations-host/annot_uniprot_host.tsv"))
@@ -675,7 +737,9 @@ nrow(fetchIDs3) #this is very long, lot's of redundancy. #98943
 #fetchIDs |> filter(is.na(fetchIDs$xref_ensemblprotists)) |> pull(Uniprot_accession)
 #remove(part1)
 #if there's ensemblprotis info, split column into tx ids 1 and 2
-part1<-fetchIDs3 |> filter(!(is.na(fetchIDs3$xref_ensemblprotists)))  |> separate(xref_ensemblprotists, into = c("tx_id1", "tx_id2"), sep = ";", remove = F) |> dplyr::select(contains("tx"), everything())
+part1<-fetchIDs3 |> 
+  filter(!(is.na(fetchIDs3$xref_ensemblprotists)))  |> separate(xref_ensemblprotists, into = c("tx_id1", "tx_id2"), sep = ";", remove = F) |> 
+  dplyr::select(contains("tx"), everything())
 #replace "" with NA
 part1<-part1 |> mutate(tx_id2 = ifelse(tx_id2=="", NA, tx_id2))
 #all unique transcript ids
@@ -720,15 +784,21 @@ fetchIDs3<-fetchIDs3 |> separate(gene_names, into =c("gene_symbol", "locus_tag")
 fetchIDsKeep<-fetchIDsKeep |> separate(gene_names, into =c("gene_symbol", "locus_tag"), sep = " ", remove=F)
 
 #check overlap with annot host
-NoOverlap<-annot_host3 |> filter(!(tx_id %in% unique(c(fetchIDsKeep$tx_id1, fetchIDsKeep$tx_id2))))
+NoOverlap<-annot_host3 |> 
+  filter(!(tx_id %in% unique(c(fetchIDsKeep$tx_id1, fetchIDsKeep$tx_id2))))
 nrow(NoOverlap) #309
-NoOverlap |> group_by(biotype) |> count() |> arrange(desc(n)) # only 189 prot. coding genes
-NoOverlap2<-NoOverlap  |> filter(biotype=="protein-coding") |> pull(locus_tag)
-#check if these 120 can be found elsewhere:
+NoOverlap |> 
+  group_by(biotype) |> 
+  count() |> 
+  arrange(desc(n)) # only 189 prot. coding genes
+NoOverlap2<-NoOverlap  |> 
+  filter(biotype=="protein-coding") |> 
+  pull(locus_tag)
+#check if these 189 can be found elsewhere:
 #https://stackoverflow.com/questions/66754791/search-for-string-across-entire-row-of-a-tibble
 
-Add189<-mclapply2(NoOverlap2, function(i)  fetchIDs3 |> filter(grepl("\\bi\\b", locus_tag, value=T)))
-table(unlist(lapply(Add189, function(x) nrow(x)))==0) #we find a hit for 41 of these 189, so let's fix those
+Add189<-mclapply2(NoOverlap2, function(i)  fetchIDs3 |> filter(grepl("\\bi\\b", locus_tag)))
+table(unlist(lapply(Add189, function(x) nrow(x)))==0) #no longer true:we find a hit for 41 of these 189, so let's fix those
 #but first check it's just one tx in each case.
 table(unlist(lapply(Add189, function(x) nrow(x)))>1) #1
 which(unlist(lapply(Add189, function(x) nrow(x)))>1) #170

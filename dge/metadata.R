@@ -63,7 +63,7 @@ write_tsv(sample_meta, paste0(base_path,"data/sampleTable_77samp.txt"))
 salmon_files <-
   file.path(paste0(base_path2,
             sample_meta$names,
-            "quant.sf")) |>
+            "/quant.sf")) |>
   setNames(sample_meta$names)
 # salmon quant files labelled with these old names actually belong to the 
 #samples listed in names_to_replace_new. E.g. sample HHQ_inf_t4_4  quant.sf is 

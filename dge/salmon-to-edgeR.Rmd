@@ -31,6 +31,7 @@ source("~/Documents/GitHub/Ehux_Ehv201/dge/pkgs.R")
 source("~/Documents/GitHub/Ehux_Ehv201/dge/plot_funcs.R")
 source("~/Documents/GitHub/Ehux_Ehv201/dge/Functions.R")
 
+setwd("~/Documents/GitHub/Ehux_Ehv201/")
 # conflicts between packages
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::rename)
@@ -85,7 +86,7 @@ if(sampSet == "10samp"){
 #FINAL COLDATA PLEASE CHECK!
 coldata <- read_tsv(paste0("data/coldata_", sampSet, ".txt"),show_col_types = FALSE)
 
-salmon_files <- readRDS(paste0(base_path, "data/salmon_files_", sampSet, ".RDS"))
+salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, ".RDS"))
 #check
 #table(names(salmon_files)==sample_meta$names)
 # Read in annotation data ----
