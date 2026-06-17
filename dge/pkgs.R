@@ -7,12 +7,12 @@
 #https://support.bioconductor.org/p/9161859/
 # Update 12/26/25: M Love says to just update all packages: https://support.bioconductor.org/p/9161859/
 #Packages
-## Run once in a while afte major upgrade:
-pkgs <- rownames(installed.packages())
-BiocManager::install(pkgs, type = "source", checkBuilt = TRUE)
+## Run once in a while after major upgrade ----
+#pkgs <- rownames(installed.packages())
+#BiocManager::install(pkgs, type = "source", checkBuilt = TRUE)
 ##
 
-## routine, list bioconductor packages
+## routine, list bioconductor packages ----
 bioconductor_pks<-c(
   "SummarizedExperiment",
   "DESeq2",
@@ -33,7 +33,9 @@ bioconductor_pks<-c(
   "WGCNA"
 )
 BiocManager::install(bioconductor_pks)
-## if not installing any packages then update existing with
+###
+
+## if not installing any packages then update existing with ----
 #BiocManager::install(ask = F)
 #load
 lapply(bioconductor_pks, require, character.only = TRUE)
@@ -43,13 +45,14 @@ other_packages <-c(
   "data.table",
   "lubridate",
   "openxlsx",
-  "Seurat",
+  #"Seurat",
   "conflicted",
   "renv"
 )
 library(pacman)
 p_path
 pacman::p_load(char=other_packages, install = F)
+####
 
   #register(MulticoreParam(4))
   # conflicted::conflicts_prefer(dplyr::filter)
@@ -65,4 +68,4 @@ pacman::p_load(char=other_packages, install = F)
 
 
 #Now activate renv
-#renv::init()
+renv::init()

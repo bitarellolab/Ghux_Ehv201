@@ -1,0 +1,932 @@
+---
+title: "Salmon to Deseq"
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output:
+  html_document:
+    toc: true
+---
+
+# Packages
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(
+  root.dir = '/Users/bbitarello/Documents/GitHub/Ehux_Ehv201/', 
+  error = T,
+  cache = T, 
+  echo = F)
+
+```
+
+```{r, packages1, include = T, eval = T, echo = F}
+setRepositories(ind = 1:3, addURLs = c('https://satijalab.r-universe.dev', 'https://bnprks.r-universe.dev/'))
+#Signac: analysis of single-cell chromatin data
+#SeuratData: automatically load datasets pre-packaged as Seurat objects
+#Azimuth: local annotation of scRNA-seq and scATAC-seq queries across multiple organs and tissues
+#SeuratWrappers: enables use of additional integration and differential expression methods
+# Install the remotes package
+#if (!requireNamespace("remotes", quietly = TRUE)) {
+#  install.packages("remotes")
+#}
+#install.packages(c("BPCells", "presto", "glmGamPoi"))
+
+#install.packages('Seurat', 'Signac')
+#remotes::install_github("satijalab/seurat-data", quiet = TRUE)
+#remotes::install_github("satijalab/azimuth", quiet = TRUE)
+#remotes::install_github("satijalab/seurat-wrappers", quiet = TRUE)
+suppressPackageStartupMessages({
+library(tidyverse)
+library(DESeq2)
+library(tximport)
+library(tximeta)
+library(SummarizedExperiment)
+library(biomaRt)
+library(openxlsx)
+library(PCAtools)
+library(Seurat)
+})
+```
+
+
+```{r, packages2, echo = T}
+
+
+# Other general settings
+##select subset of genes to look at. Options:
+#subs <- "all" #all genes
+subs <- "host" #only host genes
+#subs<-"host_cdna" #only host non-ncRNA genes
+#subs<-"virus" #only viral genes. This one gives an error:
+
+sampSet <- "79samp" #remove
+samples_to_remove <- "HHQ_cntl_t1_3" #see fastp results
+
+
+#system("mkdir -p new_results/new_plots")
+#system("mkdir -p new_results/new_PC_rnk_files")
+
+#file extension
+ext<-gsub("/", "_", gsub(" ", "_",paste0("_", sampSet,"_", subs,"_", date())))
+
+```
+
+
+# Sample meta data
+
+```{r,metadata}
+
+
+# just as an example
+sample_meta <-
+  read_tsv("data/sampleTable_80samp.txt",
+           col_names = T,
+           col_types = cols())
+
+sample_meta
+
+#fix weird names
+sample_meta$names[which(grepl("r", sample_meta$names))] <- gsub("r", "", sample_meta$names[grepl("r", sample_meta$names)])
+
+sample_meta
+
+#samples to remove
+
+sample_meta <- sample_meta |>
+  dplyr::filter(names != samples_to_remove)
+
+sample_meta
+
+```
+
+
+# Annotation data
+
+
+
+```{r, annotation}
+# Reading and parsing the annotation file
+
+# increase the size of the connection buffer to be able to read the GFF file below
+Sys.setenv(VROOM_CONNECTION_SIZE = 500000L)
+
+#host gff file
+gff_host<-
+  "https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-60/gff3/emiliania_huxleyi/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.60.gff3.gz" |>
+  read_tsv(comment = "#", col_names = FALSE, col_types = cols())
+
+gff_host
+
+ 
+annot_host <- 
+  gff_host |> 
+  dplyr::filter(grepl("ID=transcript:", X9)) |>
+  dplyr::mutate(
+    gene_id = str_extract(X9, "(?<=gene:)[^;]+"),
+    transcript_id = str_extract(X9, "(?<=ID=transcript:)[^;]+"),
+    biotype = str_extract(X9, "(?<=biotype=)[^;]+")) |>
+  dplyr::select(scaffold = X1, source = X2, gene_id, transcript_id,biotype)
+
+
+
+annot_host
+
+gff_host |> 
+  dplyr::filter(grepl("ID=transcript:", X9)) |>
+  dplyr::select(X3) |>
+  table()
+
+gtf_virus <-
+  "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/010/974/645/GCA_010974645.1_ASM1097464v1/GCA_010974645.1_ASM1097464v1_genomic.gtf.gz" |>
+  read_tsv(comment = "#", col_names = F, col_types = cols()) 
+
+gff_virus <-
+  "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/010/974/645/GCA_010974645.1_ASM1097464v1/GCA_010974645.1_ASM1097464v1_genomic.gff.gz" |>
+  read_tsv(comment = "#", col_names = F, col_types = cols()) 
+
+#gentrome.fa.gz: This is the transcriptome file I used for salmon, containing host (cDNA+ncRNA) + virus (cDNA)
+fasta_headers_v <-
+  "~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/gentrome.fa.gz" |> 
+  readLines() |>  
+  str_subset("^>JF") |> #all virus genes in the file start with JF
+  str_remove("^>")  # Remove leading ">"
+
+#length(fasta_headers_h) #46593 
+
+# Create annotation directly from FASTA
+annot_virus <- tibble(
+   #Extract transcript ID (first field before space)
+  transcript_id = str_extract(fasta_headers_v,"^[^ ]+"),
+  gene_id = str_extract(fasta_headers_v, "(?<=locus_tag=)[^\\]]+"),  # EPVG_00001
+ # protein_id = str_extract(fasta_headers_v, "(?<=protein_id=)[^\\]]+"), #AET97889.1
+  biotype = "viral_gene"
+) |> 
+  dplyr::mutate(
+    scaffold = str_extract(transcript_id, "^[^_]+"),  # JF974311.1
+    source = "Genbank"
+  ) |> 
+ # dplyr::select(scaffold, source, gene_id, transcript_id, protein_id, biotype)
+  dplyr::select(scaffold, source, gene_id, transcript_id,biotype)
+
+annot_virus #447 rows
+
+annot_combined <- dplyr::bind_rows(
+  annot_host |> dplyr::mutate(origin = "host"),
+  annot_virus |> 
+    dplyr::mutate(
+      origin = "virus",
+      #gene_id = paste0("VIRUS_", gene_id),  # Optional: prefix to avoid clashes
+      transcript_id = transcript_id  # Already matches Salmon
+    )
+)
+  
+#Extra:
+#You can import the cDNA and ncRNA fasta files and verify that the annotation above includes all sequences in these fasta files:
+
+c_dna_h <- 
+  Biostrings::readDNAStringSet("https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-60/fasta/emiliania_huxleyi/cdna/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.cdna.all.fa.gz") |>
+  names() |>
+  str_extract("^\\S+")
+
+c_dna_v <-Biostrings::readDNAStringSet("https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/010/974/645/GCA_010974645.1_ASM1097464v1/GCA_010974645.1_ASM1097464v1_cds_from_genomic.fna.gz") |>
+  names() |>
+  str_extract("^\\S+") |>
+  str_extract("(?<=lcl\\|)[^$]+")
+
+nc_rna_h <- 
+  Biostrings::readDNAStringSet("http://ftp.ensemblgenomes.org/pub/protists/release-60/fasta/emiliania_huxleyi/ncrna/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.ncrna.fa.gz") |>
+  names() |>
+  str_extract("^\\S+")
+
+
+
+all(c_dna_h %in% annot_host$transcript_id) & all(nc_rna_h %in% annot_host$transcript_id) #TRUE
+all(c_dna_v %in% annot_virus$transcript_id) #TRUE
+
+#And if you’re curious, you can check which types of non-coding RNA you have in the annotation:
+all(c(c_dna_h, c_dna_v, nc_rna_h) %in% annot_combined$transcript_id) #TRUE
+
+annot_host |>
+  dplyr::filter(transcript_id %in% nc_rna_h) |>
+  dplyr::count(biotype, sort = TRUE) |>
+  dplyr::mutate(prop=n/sum(n))
+
+annot_combined |> 
+  dplyr::count(biotype, sort = TRUE) |>
+   dplyr::mutate(prop=n/sum(n)) #98% of the annotation entries are host protein_coding.
+
+```
+
+
+
+
+```{r, annotation-alt, eval = T, echo = F}
+# Alternative annotation (optional)
+
+#BDB: this is how Upenn got annotations for the host. Main issue is ensembl doesn't have the virus
+#Can run and use the combined annotation or just the ones produced above.
+
+#######################################################################################
+# Annotation
+#######################################################################################
+
+# build table with helpful annotations for organism
+
+# choose organism
+# ensembl = useMart("ensembl",dataset="mmusculus_gene_ensembl", host="https://useast.ensembl.org")
+
+
+ensembl <- useEnsemblGenomes("protists_mart")
+
+searchDatasets(ensembl, "hux")
+
+# dataset                                                                   description
+# 5 ehuxleyi_eg_gene Emiliania huxleyi genes (Emiliana huxleyi CCMP1516 main genome assembly v1.0)
+# version
+# 5 Emiliana huxleyi CCMP1516 main genome assembly v1.0
+
+
+ensembl <- useEnsemblGenomes(biomart = "protists_mart", 
+                             dataset = "ehuxleyi_eg_gene")
+
+annot_attributes <- c(
+  "ensembl_gene_id",
+  "external_gene_name",
+  "description",
+  "chromosome_name",
+  "start_position",
+  "end_position",
+  "strand",
+  "gene_biotype"
+)
+
+annot_host_alt <- 
+  biomaRt::getBM(
+    attributes = annot_attributes,
+    filters = "ensembl_gene_id",
+    values = "",
+    mart = ensembl)
+
+all.equal(annot_host$gene_id, annot_host_alt$ensembl_gene_id)  
+#[1] "Lengths (38798, 38788) differ (string compare on first 38788)"
+#[2] "38787 string mismatches" 
+
+nrow(annot_host) # 38798
+length(unique(annot_host$gene_id)) # 38788
+
+nrow(annot_host_alt)# 38788
+length(unique(annot_host_alt$ensembl_gene_id)) #38788
+
+all.equal(unique(annot_host$gene_id), annot_host_alt$ensembl_gene_id)
+#[1] "38788 string mismatches"
+all.equal(sort(unique(annot_host$gene_id)), sort(annot_host_alt$ensembl_gene_id))
+#[1] TRUE
+#annot_host <- annot_host |>  dplyr::mutate(ensembl_gene_id = gene_id)
+annot_host_final<-annot_host |>  
+  dplyr::mutate(ensembl_gene_id = gene_id) |> 
+  dplyr::left_join(annot_host_alt, join_by(ensembl_gene_id))
+
+annot_host_final #38798
+
+annot_combined_final <- bind_rows(
+  annot_host_final |> mutate(origin = "host"),
+  annot_virus |> 
+    mutate(
+      origin = "virus",
+      transcript_id = transcript_id  # Already matches Salmon
+    )
+) #39245 rows
+
+```
+
+# Fix sample names 
+
+
+```{r, fix-sample-names}
+
+# adjust this to your actual file path
+base_path="~/Documents/rosalind-rna-seq-mirror/"
+#
+
+#Per conversation with KW on 04/21, Seq. Core mislabelled some samples so I am fixing that here. 
+
+#PS: found this in PennHPC alignment.txt:
+
+
+#########################################################################################################################
+# Rename 8 samples to correct for inversion of PlateT durning library prep
+#########################################################################################################################
+
+#cd ~/kw/salmon
+
+#mv HHQ_inf_t4_4 DMSO_cntl_t1_1r
+#mv HHQ_inf_t2_2 DMSO_cntl_t3_3r
+#mv HHQ_cntl_t4_4 DMSO_inf_t1_1r
+#mv HHQ_cntl_t2_2 DMSO_inf_t3_3r
+#mv DMSO_inf_t3_3 HHQ_cntl_t2_2r
+#mv DMSO_inf_t1_1 HHQ_cntl_t4_4r
+#mv DMSO_cntl_t3_3 HHQ_inf_t2_2r
+#mv DMSO_cntl_t1_1 HHQ_inf_t4_4r
+
+###########################################
+
+salmon_files <- 
+  file.path(paste0(base_path, "salmonq_all/j_decoy7/quant"), sample_meta$names, "quant.sf") |>
+  setNames(sample_meta$names)
+
+old_names<-names(salmon_files)
+new_names<-old_names
+names_to_replace_old<-c(
+  "DMSO_cntl_t1_1", "DMSO_inf_t1_1", "HHQ_cntl_t2_2", "HHQ_inf_t2_2",
+  "DMSO_cntl_t3_3", "DMSO_inf_t3_3", "HHQ_cntl_t4_4", "HHQ_inf_t4_4")
+
+names_to_replace_new<-c(
+  "HHQ_inf_t4_4", "HHQ_cntl_t4_4", "DMSO_inf_t3_3", "DMSO_cntl_t3_3",
+  "HHQ_inf_t2_2", "HHQ_cntl_t2_2", "DMSO_inf_t1_1", "DMSO_cntl_t1_1")
+
+new_names[unlist(lapply(names_to_replace_old, function(x) which(old_names==x)))]<-names_to_replace_new
+
+
+#PLEASE CHECK THAT THESE ARE CORRECT!
+
+test<-data.frame(old_names=old_names, new_names=new_names)
+test
+#file K. Whalen sent on 04/22 by email.
+kw<-data.table::fread("awk '{print $2, $3}' data/corrected_sample_names")
+#kw
+test[match(kw$sample_id_after_reseq, test$new_names),] |>
+dplyr::filter(old_names!=new_names) |> dplyr::select(new_names, old_names)
+#kw |> dplyr::filter(sample_id_after_reseq!=old_sample_id) |> dplyr::filter(old_sample_id!="HHQ_cntl_t1_3")
+ 
+
+#add new names to salmon_files
+
+names(salmon_files)<-new_names
+
+#check again that these replacements are correct
+salmon_files[names_to_replace_old]
+
+salmon_files[names_to_replace_new]
+
+ 
+# coldata for deseq
+
+#reorder
+salmon_files<-salmon_files[sample_meta$names]
+coldata <- data.frame(salmon_files, sample_meta) 
+colnames(coldata)<-gsub("salmon_files", "files", colnames(coldata))
+
+#FINAL COLDATA PLEASE CHECK!
+coldata
+```
+
+# Read in salmon data with IDs fixed
+```{r, read-salmon-data}
+#read in salmon data 
+
+salmon_df <- 
+  salmon_files |>
+  map_df(read_tsv, .id = "sample_name", col_types = cols())
+
+salmon_df
+```
+
+
+# Summarise gene expression at the gene level by summing up expression of each transcript
+
+```{r, summarise-exp}
+
+if(subs=="all"){
+#tx_to_gene <- annot_host_final |> dplyr::select(transcript_id, gene_id)
+tx_to_gene <- annot_combined |> dplyr::select(transcript_id, gene_id)
+#optional: could try to use the "final" annot_combined object produced above.
+#tx_to_gene <- annot_combined_final |> dplyr::select(transcript_id, gene_id)
+
+salmon_gene_quants <-
+  salmon_df |>
+  dplyr::select(sample_name, transcript_id = Name, n_reads = NumReads, tpm = TPM) |>
+  left_join(tx_to_gene, join_by(transcript_id)) |>
+  dplyr::group_by(sample_name, gene_id) |>
+  dplyr::summarise(across(c(n_reads, tpm), sum), .groups = "drop")  #new
+  }else if(subs=="host"){
+tx_to_gene <- annot_host |> dplyr::select(transcript_id, gene_id)
+salmon_gene_quants <-
+  salmon_df |>
+  dplyr::filter(Name %in% c(c_dna_h, nc_rna_h)) |>
+  dplyr::select(sample_name, transcript_id = Name, n_reads = NumReads, tpm = TPM) |>
+  left_join(tx_to_gene, join_by(transcript_id)) |>
+  dplyr::group_by(sample_name, gene_id) |>
+  dplyr::summarise(across(c(n_reads, tpm), sum), .groups = "drop")  #new
+  }else if(subs=="host_cdna"){
+tx_to_gene <- annot_host |> dplyr::filter(transcript_id %in% c_dna_h) |> dplyr::select(transcript_id, gene_id)  
+salmon_gene_quants <-
+  salmon_df |>
+  dplyr::filter(Name %in% c_dna_h) |>
+  dplyr::select(sample_name, transcript_id = Name, n_reads = NumReads, tpm = TPM) |>
+  left_join(tx_to_gene, join_by(transcript_id)) |>
+  dplyr::group_by(sample_name, gene_id) |>
+  dplyr::summarise(across(c(n_reads, tpm), sum), .groups = "drop")  #new  
+  }else if(subs=="virus"){
+tx_to_gene <- annot_virus |> dplyr::select(transcript_id, gene_id)  
+salmon_gene_quants <-
+  salmon_df |>
+  dplyr::filter(Name %in% c_dna_v) |>
+  dplyr::select(sample_name, transcript_id = Name, n_reads = NumReads, tpm = TPM) |>
+  left_join(tx_to_gene, join_by(transcript_id)) |>
+  dplyr::group_by(sample_name, gene_id) |>
+  dplyr::summarise(across(c(n_reads, tpm), sum), .groups = "drop")
+}
+salmon_gene_quants
+
+# Alternatively, to import Salmon data to use directly with DESeq2,
+# You can pass the txi object below to DESeqDataSetFromTximport()
+#
+txi <- tximport::tximport(salmon_files, 
+       type = "salmon", 
+       tx2gene = tx_to_gene)
+#nrow(txi$counts) #37771
+#Question 1: not sure what to use for arguments countsFromAbundance and readLength?
+#VRAC's response: leave default values; readLength seems to only apply for type="stringtie")
+
+#Question 2: why are there only 3771 rows instead of 39245? Does salmon not report all IDs even if they have zero counts?
+#VRAC's answer: check ref_indexing.log file from running the salmon index for a line about this. 
+#BDB: I did find it: [puff::index::jointLog] [warning] Removed 1464 transcripts that were sequence duplicates of indexed transcripts. But why are there duplicate transcripts in our index?
+
+```
+
+# Run DESeq
+```{r, deseq}
+
+ddsTxi <- DESeq2::DESeqDataSetFromTximport(
+  txi = txi, colData = coldata, design= ~ condition + batch)
+
+#similar but stated differently
+#ddsTxi2 <- DESeq2::DESeqDataSetFromTximport(
+#     txi = txi, colData = coldata, 
+#     design= ~ virus + timePt + treatment + treatment:virus + virus:timePt + treatment:virus:timePt + batch)
+#Question 3: why is rowData names(0). is this ok or does it indicate something went wrong? What is the differences between rownames and rowData names?
+#Vitor's answer: it seems normal, rowData seems to apply to other tyeps of objects from bioconductor. 
+####################
+##optional filtering
+####################
+#filter <- which(rowSums(counts(ddsTxi))>=10) # 31652
+#smallestGroupSize <- 5
+#keep <- which(rowSums(counts(ddsTxi) >= 10)>= smallestGroupSize) #28423 rows
+#Question 4: where do I filter these out suing the current code? DESeq(counts(ddsTxi)[filter,])? Note: Before I was using a different approach (see Upenn code at the bottom of this report).
+#Vitor's answer: i don't normally do this filtering and instead let DESEQ do the independent filtering, which is an algorithm to remove genes based on expression level with the aim of maximizing power. But if wanted use: 
+#keep<-rowSums(counts(dds)>=count_thresh) >=n_samples; dds<-dds[keep,]
+
+
+dds_combined <- DESeq2::DESeq(object = ddsTxi, parallel = T)
+#9 rows did not converge in beta, labelled in mcols(object)$betaConv. Use larger maxit argument with nbinomWaldTest
+
+#dds_combined2 <- DESeq2::DESeq(object = ddsTxi2, parallel = T)
+#221 rows did not converge in beta, labelled in mcols(object)$betaConv. Use larger maxit argument with nbinomWaldTest
+
+#-------Results
+
+#contrasts available by default
+
+DESeq2::resultsNames(dds_combined) 
+#Question 5: 15 contrasts here? Why?
+#dds_combined_res <- DESeq2::results(dds_combined)
+#Question 6: if I don't specific any contrasts here, why is the one returned an arbitrary conteast based on the design I provided? I.e., in this case here the object is:
+
+#dds_combined_res # batch b5 vs b1 
+
+#vitor's answers to 5 and 6: you can find this in the ?DESeq2::results page:
+#"If results is run without specifying contrast or name, it will return the comparison of the last level of the last variable in the design formula over the first level of this variable."
+#DESeq2::resultsNames(dds_combined2) 
+
+#what rows are they?
+#Identify problematic genes
+
+
+failed_conv<-as.data.frame(mcols(dds_combined)) |>
+  dplyr::filter(betaConv==F) %>% rownames() #7
+
+#inspect them
+failed_conv
+#inspect them
+annot_combined |> 
+  dplyr::filter(gene_id %in% failed_conv) #all are host genes
+
+#inspecting their counts
+head(counts(dds_combined)[failed_conv,]) 
+#total nr reads mapped across samples for these failed genes
+
+#BDB: Vitor doesn't think we need to filter out these genes. 
+```
+
+
+# Plots
+
+```{r, plots, fig.width = 12, fig.height = 12}
+#colors
+
+# mygray<-wesanderson::wes_palette("Royal1")[1]
+# mygreen<-wesanderson::wes_palette("Royal2")[5]
+# myblue<-wesanderson::wes_palette("AsteroidCity3")[4]
+# myorange<-wesanderson::wes_palette("AsteroidCity3")[1]
+ext<-gsub(" ", "_",paste0("_", sampSet,"_", subs,"_", date()))
+#A simple helper function that plots the per-gene dispersion estimates together with the fitted mean-dispersion relationship.
+#select version used for plotting:
+#see previous chunk, variable "subs"
+pdf(file = paste0("new_results/new_plots/dispersion_estimates",ext, ".pdf"), width = 8, height = 6)
+#plotDispEsts(dds_host_res)
+DESeq2::plotDispEsts(dds_combined)
+dev.off()
+#plotDispEsts(dds_combined) #for report
+#Question 7: not sure what I should be looking for here. I saw this in the tutorials and Upenn code.
+#Vitor's answer: I never really look at these plots except when I was first studying deseq. I trust DESeq to deal with this relationship between expression elvel and variance and to correct that properly in normalizations such as vst(). 
+
+#######################################################################################
+# Plot PCA with PCAtools
+#######################################################################################
+
+# calculate principle components and annotate samples
+
+#Question 8: is this the right way to do this? I am using vst because Upenn did that but I think you had suggested something different?
+#Vitor's answer: it looks right. I don't remember what assay(vst(dds)) does. If compatible with the function you're using, perfect. I use DESeq2::plotPCA(vst(dds), ntop = 2000, returnData = TRUE)
+mat<-assay(vst(dds_combined))
+metadata <- colData(dds_combined)
+identical(rownames(metadata),colnames(mat))
+p <- PCAtools::pca(
+            mat = mat,
+           # metadata = colData(dds_host_res),
+            metadata = metadata,
+           removeVar = 0.5) #  fraction of low variance data to exclude
+
+# Question 9: what value to use for removeVar?ccc
+# Vitor's answer: there is no value; it's arbitrary.You can plot expression levels vs variance to try to find an appropriate value for your date. Single-cell RNA-seq folks usually do that. E.g.:https://satijalab.org/seurat/articles/pbmc3k_tutorial.html#identification-of-highly-variable-features-feature-selection
+# write table of PC coordinates for each sample for use in external graphing tools
+#system("mkdir PC_rnk_files")
+
+
+ld <- as_tibble(getLoadings(p), rownames = "#geneID")
+
+for (i in 1:4) {
+  write_tsv(file = paste0("new_results/new_PC_rnk_files/PC",i,"_loadings",ext, ".rnk"), dplyr::select(ld, c(1,i+1)))
+  head(dplyr::select(ld, c(1,i+1)))
+}
+
+
+
+# integrate symbols where possible for gene labels
+
+rownames(p$loadings) <- as_tibble(rownames(p$loadings)) |>
+  setNames("gene_id") |>
+  #left_join(annot_dds_host) |>
+  left_join(annot_combined) |>
+  
+  dplyr::select(c("gene_id")) |>
+  unique() |>
+  deframe() 
+
+##########################
+# SCREE plot (variation per component)
+
+pdf(file = paste0("new_results/new_plots/PCAscreeplot_",ext,".pdf"),
+    width = 12,
+    height = 12)
+
+PCAtools::screeplot(p, axisLabSize = 15, titleLabSize = 20)
+dev.off()
+PCAtools::screeplot(p, axisLabSize = 12, titleLabSize = 15) #for report
+
+##########################
+# gene loadings per component
+
+pdf(file = paste0("new_results/new_plots/PCAloadings_",ext, ".pdf"),
+    width = 12,
+    height = 8)
+
+PCAtools::plotloadings(p, labSize = 1)
+dev.off()
+PCAtools::plotloadings(p, labSize = 0.5) #for report
+
+# biplots of component pairs
+pdf(file = paste0("new_results/new_plots/PCApairsplot_condition_",ext, ".pdf"),
+    width = 12,
+    height = 12)
+
+PCAtools::pairsplot(p,
+          colby = "condition")
+
+dev.off()
+
+PCAtools::pairsplot(p,
+          colby = "condition") # for report
+
+##########################
+```
+
+```{r, plots2, fig.width=15, fig.height=15}
+# biplots with and without superimposed gene loadings
+
+pdf(file = paste0("new_results/new_plots/PCAbiplots_condition_",ext,".pdf"),
+    width = 15,
+    height = 15)
+
+PCAtools::biplot(p,
+       showLoadings = FALSE,
+       x = "PC1",
+       y = "PC2",
+       colby = 'trt_vir',
+       shape = 'timePt', # to change shape by levels of an additional factor
+       legendPosition = 'right',
+       labSize = 3, 
+       pointSize = 2, 
+       sizeLoadingsNames = 3)
+
+biplot(p,
+       showLoadings = TRUE,
+       x = "PC1",
+       y = "PC2",
+       colby = 'trt_vir',
+       shape = 'timePt', # to change shape by levels of an additional factor
+       legendPosition = 'right',
+       labSize = 2, 
+       pointSize = 4, 
+       sizeLoadingsNames = 3)
+
+
+biplot(p,
+       showLoadings = FALSE,
+       x = "PC2",
+       y = "PC3",
+       colby = 'trt_vir',
+       shape = 'timePt', # to change shape by levels of an additional factor
+       legendPosition = 'right',
+       labSize = 3, 
+       pointSize = 4, 
+       sizeLoadingsNames = 3)
+
+biplot(p,
+       showLoadings = FALSE,
+       x = "PC2",
+       y = "PC4",
+       colby = 'trt_vir',
+       shape = 'timePt', # to change shape by levels of an additional factor
+       legendPosition = 'right',
+       labSize = 3, 
+       pointSize = 4, 
+       sizeLoadingsNames = 3)
+
+
+
+biplot(p,
+       showLoadings = FALSE,
+       x = "PC3",
+       y = "PC4",
+       colby = 'trt_vir',
+       shape = 'timePt', # to change shape by levels of an additional factor
+       legendPosition = 'right',
+       labSize = 3, 
+       pointSize = 4, 
+       sizeLoadingsNames = 3)
+dev.off()
+
+#showing first 2 here for report
+
+
+biplot(p,
+       showLoadings = TRUE,
+       x = "PC1",
+       y = "PC2",
+       colby = 'trt_vir',
+       shape = 'timePt', # to change shape by levels of an additional factor
+       legendPosition = 'right',
+       labSize = 2, 
+       pointSize = 3, 
+       sizeLoadingsNames = 2)
+
+
+# A different PCA plot
+
+DESeq2::plotPCA(vst(dds_combined), ntop =  18885, returnData = F)
+
+##########################
+# save R environment
+save.image(file = paste0("new_results/GseAnnotPCA_bdb",ext,".rda"))
+
+sessionInfo() |>
+  capture.output() |>
+  writeLines(paste0("new_results/sessionInfo_GseAnnotPCA ",ext,".txt"))
+
+##########################
+
+```
+
+
+```{r, upenn1, eval = F, echo = F}
+# Upenn code - here for reference and because I used it for PCAs earlier this week but not being run in this doc.
+
+#Question 10: any advantage in using parts of their code?
+
+################################
+# If using non-gencode data, then need this (first time) for tximeta
+################################
+
+indexDir="~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/decoyIndex"
+
+fastaFTP<-"~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/gentrome.fa.gz"
+
+gtfPath_h <- c(
+  "https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-60/gff3/emiliania_huxleyi/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.60.gff3.gz")
+tximeta::makeLinkedTxome(
+  indexDir = indexDir,
+  source = "LocalEnsembl",
+  organism = "Emiliania huxleyi",
+  release = "113",
+  genome = "EhCCMP1516",
+  fasta = fastaFTP,
+  gtf = gtfPath_h,
+  write = TRUE,
+  jsonFile = "EhCCMP1516_113.tximeta.json"
+)
+
+
+# Then for future runs just load tx database with json file
+
+# get correct metadata automatically
+
+se_host <- tximeta::tximeta(coldata,
+                            type = "salmon",
+                            skipMeta = F,
+                            useHub = TRUE)
+
+#importing quantifications
+#reading in files with read_tsv
+#1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 #42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 
+#found matching linked transcriptome:
+#[ LocalEnsembl - Emiliania huxleyi - release 113 ]
+#loading existing TxDb created: 2025-04-11 18:53:10
+#loading existing transcript ranges created: 2025-04-11 18:53:10
+#Warning message:
+#In checkAssays2Txps(assays, txps) : 
+
+#Warning: the annotation is missing some transcripts that were quantified.
+#445 out of 37779 txps were missing from GTF/GFF but were in the indexed FASTA.
+#(This occurs sometimes with Ensembl txps on haplotype chromosomes.)
+#In order to build a ranged SummarizedExperiment, these txps were removed.
+#To keep these txps, and to skip adding ranges, use skipMeta=TRUE
+
+#Example missing txps: [JF974311, JF974311, JF974311, ...]
+
+## BDB: this makes sense as 445 is the number of genes that are from the viral transcriptome. 
+##read counts
+#assay(se_host)
+#sanity check:
+#assay(se_host)[which(rownames(assay(se_host))=="EOD28537"),1]
+#should be the same as
+#(salmon_gene_quants_host |> dplyr::filter(sample_name=="DMSO_cntl_t1_1", gene_id=="EMIHUDRAFT_100000"))$n_reads
+
+#head(assay(se_host))
+gse_host<-tximport::summarizeToGene(se_host, tx2gene=tx_to_gene)
+#loading existing TxDb created: 2025-04-11 18:53:10
+#obtaining transcript-to-gene mapping from database
+#loading existing gene ranges created: 2025-04-11 19:24:31
+#assignRanges='range': gene ranges assigned by total range of isoforms
+#  see details at: ?summarizeToGene,SummarizedExperiment-method
+#summarizing abundance
+#summarizing counts
+#summarizing length
+rowData(gse_host) <-  as_tibble(rowData(gse_host)) |>
+  add_column("ensembl_gene_id" = rowData(gse_host)$gene_id)
+#######################################################
+# end salmon data
+#######################################################
+
+```
+
+
+
+```{r, upenn2, eval = F,echo = T}
+#######################################################
+# Create gene annotation table with rows matching gse
+#######################################################
+
+# create tibble with rows matching dds object as target for annotations
+# off-label use of native function to remove ensembl version extension to give stable ensID 
+# join ensembl bulk query into annotation target preserving target
+# preserving row order in summarized expression object
+
+annot_dds_host <- tibble(gencode_gene_id = row.names(gse_host),
+                         ensembl_gene_id = row.names(gse_host)) |>
+  left_join(annot_host_final, by = "ensembl_gene_id") |>
+  dplyr::rename(gene_name = external_gene_name) # required for PCAExplorer
+annot_dds_host
+
+#annot_dds_host |> dplyr::group_by(ensembl_gene_id) |> dplyr::count() |> arrange(desc(n))
+# A tibble: 37,324 × 2
+# Groups:   ensembl_gene_id [37,324]
+ #   ensembl_gene_id       n
+ #   <chr>             <int>
+ # 1 EMIHUDRAFT_508362     3 # 3 splice variants
+ # 2 EMIHUDRAFT_428156     2 #2 splice variants
+ # 3 EMIHUDRAFT_429503     2
+ # 4 EMIHUDRAFT_434096     2
+ # 5 EMIHUDRAFT_437834     2
+ # 6 EMIHUDRAFT_447013     2
+ # 7 EMIHUDRAFT_448185     2
+ # 8 EMIHUDRAFT_558363     2
+ # 9 EMIHUDRAFT_558383     2
+#annot_dds_host |> dplyr::group_by(ensembl_gene_id) |> dplyr::count() |> arrange(desc(n))
+#some ids are not unique
+# create gene annotation column rowLabel that will be symbol where unambiguous or ensID
+
+#annot_dds_host<-left_join(annot_dds_host, annot_dds_host |> dplyr::group_by(ensembl_gene_id) |> dplyr::count() |> arrange(desc(n))) #attemp to account for isoforms
+
+
+annot_dds_host <- mutate(annot_dds_host,
+                         rowLabel = 
+                           case_when(gene_name != "" ~ paste(gene_name,ensembl_gene_id),
+                                     gene_name == "" ~ ensembl_gene_id),
+                         .after = "gene_name"
+)
+
+
+saveRDS(annot_dds_host, file = "new_results/annot_dds_host.rds")
+
+# merge annotations into SummarizedExperiment object
+
+rowData(gse_host) <- left_join(as_tibble(rowData(gse_host)), annot_dds_host, join_by(ensembl_gene_id)) |> 
+  dplyr::select(c("ensembl_gene_id", "rowLabel")) |> unique()
+
+
+saveRDS(gse_host, file = paste0("new_results/gse_host_",sampSet,"_new.rds"))
+
+
+#Session info
+sessionInfo() %>%
+  capture.output() %>%
+  writeLines(paste0("logs/annotation.txt"))
+
+##########################
+```
+
+------
+
+# Other code (not ran)
+```{r, upenn3, eval = F,  echo = T}
+#This is the code I used earlier this week for my PCA plots. 
+
+#######################################################################################
+# Differential expression analysis with DESeq2
+#######################################################################################
+# 
+# Make DESeq object from summarized experiment
+dds_host <- DESeqDataSet(gse_host, design = ~ condition + batch)
+#condition is treatment + time point
+# batch is biological replicates
+# 
+# test
+# compare this:
+# as_tibble(counts(dds_host)) |> dplyr::select(contains("DMSO_cntl_t1")) |> rowwise() |> mutate(total=sum(DMSO_cntl_t1_1, DMSO_cntl_t1_2, DMSO_cntl_t1_3, DMSO_cntl_t1_4, DMSO_cntl_t1_5))
+# 
+# to this
+# as_tibble(counts(collapseReplicates(dds_host,dds_host$condition, renameCols = TRUE)))
+# 
+# #collapse the biological replicates?
+# #dds_host <- collapseReplicates(dds_host,dds_host$condition, renameCols = TRUE)
+# 
+# #run DESeq2
+# #> length(rowSums(counts(dds_host)))
+# #[1] 37324
+# #> sum(rowSums(counts(dds_host))>=10)
+# #[1] 31210
+# 
+# #v2:
+# filter <- rowSums(counts(dds_host))>=10 #31210
+# #v3
+# smallestGroupSize <- 5
+# keep <- which(rowSums(counts(dds_host) >= 10)>= smallestGroupSize) #27996 genes
+# #another possibility
+# 
+dds_host_res <- DESeq(dds_host) # 37324 rows
+# #19 rows did not converge in beta, labelled in mcols(object)$betaConv. Use larger maxit argument with nbinomWaldTest
+# 
+# #v1
+dds_host_res <- DESeq(dds_host) #37324 rows
+# #v2
+dds_host_res <- DESeq(dds_host[filter,]) #31210 rows
+# #16 rows did not converge in beta, labelled in mcols(object)$betaConv. Use larger maxit argument with nbinomWaldTest
+# #without filtwering before, it was 19 rows.
+non_conv_genes <- rownames(dds_host_res)[!mcols(dds_host_res)$betaConv]
+non_conv_genes
+# #inspect them
+# 
+counts(dds_host_res)[non_conv_genes, ]
+# #v3
+dds_host_res <- DESeq(dds_host[keep,]) #27996 rows
+# #mean-dispersion relationship
+# #-- note: fitType='parametric', but the dispersion trend was not well captured by the
+# #   function: y = a/x + b, and a local regression fit was automatically substituted.
+# #   specify fitType='local' or 'mean' to avoid this message next time.
+# #final dispersion estimates
+# #fitting model and testing
+# #8 rows did not converge in beta, labelled in mcols(object)$betaConv. Use larger maxit argument with nbinomWaldTest
+# #dds_host_res_clean <- dds_host_res[which(mcols(dds_host_res)$betaConv),]  #31194 rows
+# #dds_host_collapse_reps<- DESeq(collapseReplicates(dds_host,dds_host$condition, renameCols = TRUE))
+
+```
+

@@ -27,9 +27,9 @@ knitr::opts_knit$set(
 
 
 ## Fonts and figures settings
-source("~/Documents/GitHub/Ehux_Ehv201/dge/scripts/pkgs.R")
-source("~/Documents/GitHub/Ehux_Ehv201/dge/scripts/plot_funcs.R")
-source("~/Documents/GitHub/Ehux_Ehv201/dge/scripts/Functions.R")
+source("~/Documents/GitHub/Ehux_Ehv201/dge/pkgs.R")
+source("~/Documents/GitHub/Ehux_Ehv201/dge/plot_funcs.R")
+source("~/Documents/GitHub/Ehux_Ehv201/dge/Functions.R")
 
 # conflicts between packages
 conflicts_prefer(dplyr::filter)
@@ -42,9 +42,9 @@ conflicts_prefer(dplyr::select)
 ```{r, setup2, eval = T, echo = F, include = T}
 ## Adjust these to your actual file paths
 ## Working directory
-base_path <- "~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/Ehux_Ehv201/data_and_res_gh_repo/"
+base_path <- "~/Documents/Ehux-for-pub/scratch/"
 ## Salmon path
-base_path2 <- "~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"
+base_path2 <- "~/Documents/Ehux-for-pub/salmonQ-v1.11.4/"
 
 ## Select subset of genes to look at. 
 
@@ -52,7 +52,7 @@ base_path2 <- "~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"
 #subs <- "virus"; sampSet <- "39samp" #
 #subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
-subs <- "virus"; sampSet <- "10samp" #
+#subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
 
 res_path <- paste0(base_path, subs, "/", sampSet, "/")
@@ -83,7 +83,7 @@ if(sampSet == "10samp"){
 
 
 #FINAL COLDATA PLEASE CHECK!
-coldata <- read_tsv(paste0(base_path, "data/coldata_", sampSet, ".txt"),show_col_types = FALSE)
+coldata <- read_tsv(paste0("data/coldata_", sampSet, ".txt"),show_col_types = FALSE)
 
 salmon_files <- readRDS(paste0(base_path, "data/salmon_files_", sampSet, ".RDS"))
 #check

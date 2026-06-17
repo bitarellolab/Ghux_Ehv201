@@ -1,3 +1,4 @@
+#!/opt/R/bin/Rscript
 # Make sample subsets
 
 ## See also: MakeMetadata.R (for salmon runs)
@@ -13,14 +14,16 @@
 
 library(tidyverse)
 #base path
-(base_path <- path.expand("/Users/bbitarello/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
+#(base_path <- path.expand("/Users/bbitarello/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
 # Salmon path
+(base_path <- path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
 # adjust this to your actual file path
-(base_path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/"))
+#(base_path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/"))
+(base_path2 <- path.expand("~/Documents/Ehux-for-pub/salmonQ-v1.11.4/"))
 
 
 ## Read in metadata (original)
-sample_meta <- read_tsv(paste0(base_path, "data/sampleTable_80samp.txt"),
+sample_meta <- read_tsv(paste0(base_path,"data/sampleTable_80samp.txt"),
                         col_names = T,
                         col_types = cols())
 
@@ -52,15 +55,15 @@ sample_meta <- sample_meta |>
 
 sample_meta <- tibble(sample_meta)
 
-write_tsv(sample_meta, paste0(base_path, "data/sampleTable_77samp.txt"))
+write_tsv(sample_meta, paste0(base_path,"data/sampleTable_77samp.txt"))
 
 # Fix salmon files sample names
 # Reason: some sequencing runs were labelled incorrectly. This script fixes that.
 
 salmon_files <-
-  file.path(paste0(base_path2, "salmonq_all/j_decoy7/quant"),
+  file.path(paste0(base_path2,
             sample_meta$names,
-            "quant.sf") |>
+            "quant.sf")) |>
   setNames(sample_meta$names)
 # salmon quant files labelled with these old names actually belong to the 
 #samples listed in names_to_replace_new. E.g. sample HHQ_inf_t4_4  quant.sf is 
