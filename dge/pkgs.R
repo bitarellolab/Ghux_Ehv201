@@ -68,4 +68,4 @@ pacman::p_load(char=other_packages, install = F)
 
 
 #Now activate renv
-renv::init()
+

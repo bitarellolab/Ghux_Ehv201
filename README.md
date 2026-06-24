@@ -9,12 +9,12 @@ Some of the plots were ran in R on a Mac.
 
 ./0-install.sh
 
-##KEGG pathway: https://rest.kegg.jp/link/ehx/pathway saved as KEGG-pathway.txt
-
 
 # fastp
 
 ##https://github.com/opengene/fastp
+
+Rscript --vanilla 01-MakeMetadata.R
 
 sbatch 01-runFastp.slurm
 
@@ -36,13 +36,19 @@ sbatch 02-runSalmon.slurm
 
 # 3. Multiqc
 
-./runMultiQC.sh
+./03-runMultiQC.sh
+
+# 4. Metadata
+
 
 # 4. DGE
 
-see dge/README.md
+##see dge/README.md
 
 
 
 
 
+# Old
+
+##KEGG pathway: https://rest.kegg.jp/link/ehx/pathway saved as KEGG-pathway.txt

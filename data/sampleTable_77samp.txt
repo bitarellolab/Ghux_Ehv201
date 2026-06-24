@@ -1,5 +1,4 @@
 names	condition	trt_vir	treatment	virus	timePt	batch
-DMSO_cntl_t1_1	DMSO_cntl_t1	DMSO_cntl	DMSO	cntl	t1	b1
 DMSO_cntl_t1_2	DMSO_cntl_t1	DMSO_cntl	DMSO	cntl	t1	b2
 DMSO_cntl_t1_3	DMSO_cntl_t1	DMSO_cntl	DMSO	cntl	t1	b3
 DMSO_cntl_t1_4	DMSO_cntl_t1	DMSO_cntl	DMSO	cntl	t1	b4

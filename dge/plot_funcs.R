@@ -21,14 +21,14 @@ suppressPackageStartupMessages({
   library(circlize)
 })
 # Fonts ----
-extrafont::font_import(prompt = F)
-extrafont::loadfonts(quiet = T)
+#extrafont::font_import(prompt = F)
+#extrafont::loadfonts(quiet = T)
 hrbrthemes::import_roboto_condensed()
 sysfonts::font_add_google("Roboto")
 sysfonts::font_add_google("Roboto Condensed")
 gdtools::register_gfont(family = "Roboto Condensed")
 systemfonts::get_from_google_fonts(family = "Roboto Condensed")
-fonts <- systemfonts::system_fonts()
+#fonts <- systemfonts::system_fonts()
 systemfonts::fonts_as_import(family = "Roboto Condensed")
 systemfonts::match_font("Roboto Condensed")
 #extrafont::font_import(paths= "/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/hrbrthemes/fonts/", recursive = T, prompt = F)
@@ -108,7 +108,7 @@ grays <- rev(hcl.colors(n = 5, palette = "grays"))
 #hues <- rev(hcl.colors(10, "Magenta"))
 #prgn <- colorRampPalette(rev(brewer.pal(name = 'PRGn', n = 11)[-c(6, 7)]))(255)
 prgn <- colorRampPalette(rev(brewer.pal(name = 'PRGn', n = 10)))(255)
-remove(l1); l1<-length(prgn);
+base::remove(l1); l1<-length(prgn);
 col_fun_prgn<-colorRamp2(breaks = c(-3, 0, 3), colors = c(prgn[1],prgn[l1/2], prgn[l1]))
 col_fun_prgn2<-colorRamp2(breaks = c(-3, 0, 3), colors = c(prgn[1],prgn[l1/2], prgn[l1]), space = "RGB")
 prgn2 <- colorRampPalette(rev(brewer.pal(name = 'PRGn', n = 11)[-c(6, 7)]))(20)
@@ -121,23 +121,23 @@ bb_theme <-  function() {
   theme(
     text = element_text(face = "plain", family = "Roboto Condensed"),
     axis.text.x = element_text(
-      size = 14,
+      size = 13,
       family = "Roboto Condensed",
       face = "plain"
     ),
     axis.text.y = element_text(
-      size = 14,
+      size = 13,
       family = "Roboto Condensed",
       face = "plain"
     ),
     axis.title.x = element_text(
-      size = 16,
+      size = 14,
       hjust = 1,
       family = "Roboto Condensed",
       face = "plain"
     ),
     axis.title.y = element_text(
-      size = 16,
+      size = 14,
       hjust = 1,
       family = "Roboto Condensed",
       face = "plain"
@@ -149,8 +149,8 @@ bb_theme <-  function() {
       family = "Roboto Condensed",
       face = "plain"
     ),
-    plot.title = element_text(family = "Roboto Condensed", size = 18),
-    strip.text =  element_text(size = 14),
+    plot.title = element_text(family = "Roboto Condensed", size = 16),
+    strip.text =  element_text(size = 13),
     panel.background = element_blank(),
     panel.grid.major.x = element_line(color = "gray", linewidth = 0.1)
   )

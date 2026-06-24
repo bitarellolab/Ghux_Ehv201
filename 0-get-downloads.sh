@@ -54,9 +54,16 @@ grep ">" cds_from_genomic.fna |wc -l #38559
 
 grep "hypothetical protein" cds_from_genomic.fna |wc -l # 35788
 
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/372/725/GCF_000372725.1_Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0/GCF_000372725.1_Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0_gene_ontology.gaf.gz
+
 #check nr of seqs
 #zgrep ">" GCA_000372725.1_Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0_cds_from_genomic.fna.gz|wc -l# 38559
 ## EhV201 virus data
+
+#uniprot
+
+#API: https://rest.uniprot.org/uniprotkb/stream?compressed=true&fields=accession%2Cid%2Cgene_names%2Corganism_name%2Clength%2Cgo_p%2Cgo_c%2Cgo_f%2Cgo%2Cgo_id%2Cxref_eggnog_full&format=tsv&query=%28%28taxonomy_id%3A280463%29%29"
+#saved as uniprotkb_taxonomy_id_280463_2026_06_21.tsv.gz
 
 # EhV201
 

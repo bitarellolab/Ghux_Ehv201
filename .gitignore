@@ -1,3 +1,4 @@
+*.DS_Store
 multiqc/fastp/*
 salmon/salmonq_all/*
 .Rproj.user
@@ -8,3 +9,8 @@ data/Annotations-host/*gff*
 data/Annotations-host/*gtf*
 data/Annotations-host/*rds
 data/Annotations-host/*gz
+data/Annotations-host/*RDS
+data/Annotations-host/*tsv
+data/*.rds
+data/*.RDS
+data/*gz
