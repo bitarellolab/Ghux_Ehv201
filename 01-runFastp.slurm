@@ -7,13 +7,13 @@
 #SBATCH -p high
 #SBATCH --array=1-321
 #SBATCH --job-name=FASTP
-#SBATCH -o /home/bbitarello/scratch/logs/2026/fastp.%A-%a.log
-#SBATCH -e /home/bbitarello/scratch/logs/2026/fastp.%A-%a.err
+#SBATCH -o /home/bbitarello/scratch/logs/fastp-v025/fastp.%A-%a.log
+#SBATCH -e /home/bbitarello/scratch/logs/fastp-v025/fastp.%A-%a.err
 
 # PATHS
 FASTQDIR="/home/bbitarello/scratch/FASTQ"
 # OUTPUT
-OUTDIR="/home/bbitarello/scratch/fastp/2026/"
+OUTDIR="/home/bbitarello/scratch/fastp-v025/"
 
 mkdir -p $OUTDIR
 
@@ -33,8 +33,11 @@ BARCODE=$( awk -v ARRID="$SLURM_ARRAY_TASK_ID" 'FNR==ARRID { print $8 }' $METADA
 # Load environment and activate conda environment
 source ~/.bashrc
 eval "$(conda shell.bash hook)"
-#conda activate fastpenv
+#conda activate fastpenv (fastp v 0.22)
 conda activate /home/bbitarello/miniconda3/envs/fastpenv
+
+#conda activate fastpenv (fastp v 0.25)
+conda activate /home/bbitarello/miniconda3/envs/fastp
 
 
 # COMMAND

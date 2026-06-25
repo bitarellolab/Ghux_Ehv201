@@ -18,6 +18,13 @@ conda activate fastpenv
 conda install -c bioconda fastp
 fastp -v # 0.22.0
 
+conda deactivate
+conda config --add channels bioconda
+conda config --add channels conda-forge
+conda create -n fastp
+conda activate fastp
+conda install bioconda::fastp==0.25.0
+fastp -v #0.25
 
 # multiqc
 
@@ -42,7 +49,7 @@ conda config --add channels conda-forge
 
 conda config --add channels bioconda
 
-conda install bioconda::salmon
+conda install bioconda::salmon==1.10.3
 
 salmon -v #1.11.4
 
