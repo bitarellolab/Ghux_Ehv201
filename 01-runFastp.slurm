@@ -7,13 +7,13 @@
 #SBATCH -p high
 #SBATCH --array=1-321
 #SBATCH --job-name=FASTP
-#SBATCH -o /home/bbitarello/scratch/logs/fastp-v025/fastp.%A-%a.log
+#SBATCH -o /home/bbitarello/scratch/logs/fastp-v024/fastp.%A-%a.log
 #SBATCH -e /home/bbitarello/scratch/logs/fastp-v025/fastp.%A-%a.err
 
 # PATHS
 FASTQDIR="/home/bbitarello/scratch/FASTQ"
 # OUTPUT
-OUTDIR="/home/bbitarello/scratch/fastp-v025/"
+OUTDIR="/home/bbitarello/scratch/fastp-v024/"
 
 mkdir -p $OUTDIR
 
@@ -36,10 +36,7 @@ eval "$(conda shell.bash hook)"
 #conda activate fastpenv (fastp v 0.22)
 #conda activate /home/bbitarello/miniconda3/envs/fastpenv
 #conda activate fastpenv (fastp v 0.24)
-#
-#conda activate fastpenv (fastp v 0.25)
 conda activate /home/bbitarello/miniconda3/envs/fastp
-
 
 # COMMAND
 
