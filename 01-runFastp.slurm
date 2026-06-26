@@ -8,7 +8,7 @@
 #SBATCH --array=1-321
 #SBATCH --job-name=FASTP
 #SBATCH -o /home/bbitarello/scratch/logs/fastp-v024/fastp.%A-%a.log
-#SBATCH -e /home/bbitarello/scratch/logs/fastp-v025/fastp.%A-%a.err
+#SBATCH -e /home/bbitarello/scratch/logs/fastp-v024/fastp.%A-%a.err
 
 # PATHS
 FASTQDIR="/home/bbitarello/scratch/FASTQ"
