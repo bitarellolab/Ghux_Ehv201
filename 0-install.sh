@@ -23,8 +23,8 @@ conda config --add channels bioconda
 conda config --add channels conda-forge
 conda create -n fastp
 conda activate fastp
-conda install bioconda::fastp==0.25.0
-fastp -v #0.25
+conda install bioconda::fastp==0.24.0
+fastp -v #0.24
 
 # multiqc
 
