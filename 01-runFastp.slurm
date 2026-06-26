@@ -34,8 +34,9 @@ BARCODE=$( awk -v ARRID="$SLURM_ARRAY_TASK_ID" 'FNR==ARRID { print $8 }' $METADA
 source ~/.bashrc
 eval "$(conda shell.bash hook)"
 #conda activate fastpenv (fastp v 0.22)
-conda activate /home/bbitarello/miniconda3/envs/fastpenv
-
+#conda activate /home/bbitarello/miniconda3/envs/fastpenv
+#conda activate fastpenv (fastp v 0.24)
+#
 #conda activate fastpenv (fastp v 0.25)
 conda activate /home/bbitarello/miniconda3/envs/fastp
 

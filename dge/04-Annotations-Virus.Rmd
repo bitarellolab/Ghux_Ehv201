@@ -25,7 +25,7 @@ options(max.print = .Machine$integer.max, scipen = 999, stringsAsFactors = F, dp
 
 # paths
 (base.path <- path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
-(base.path2 <- path.expand("~/Documents/Ehux-for-pub/salmonQ-v1.11.4/"))
+(base.path2 <- path.expand("~/Documents/Ehux-for-pub/"))
 #setwd(path.expand("~/projects/Ehux_Ehv201/")) #rosalind
 setwd(path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
 
@@ -89,16 +89,20 @@ colnames(uniprot_virus)<-gsub("GO_\\(biological process\\)", "GO_BP", colnames(u
 colnames(uniprot_virus)<-gsub("GO_\\(cellular component\\)", "GO_CC", colnames(uniprot_virus))
 colnames(uniprot_virus)<-gsub("GO_\\(molecular function\\)", "GO_MF", colnames(uniprot_virus))
 uniprot_virus<-uniprot_virus |> dplyr::select(locus_tag, Uniprot_accession = Entry, Uniprot_entry_name = `Entry Name`, UniprotProteinName = `Protein names`, Protein_Length = Length, contains("GO"),everything())
-uniprot_virus<-uniprot_virus |> dplyr::rename(GO_Names = `GO_(GO)`)
+uniprot_virus<-uniprot_virus |> dplyr::rename(`GO (GO)`=`GO_(GO)`)
+uniprot_virus<-uniprot_virus |> dplyr::rename(`GO IDs`=`GO_IDs`)
+uniprot_virus<-uniprot_virus |> mutate(`GOs` = NA)
+isGOannot(uniprot_virus) |> group_by(GOAnnotAvail) |> tally()
+uniprot_virus<-isGOannot(uniprot_virus) 
 uniprot_virus |> group_by(UniprotProteinName == "Uncharacterized protein") |> tally()
 #FALSE 176
 cols<-colnames(uniprot_virus)[which(grepl("GO_", colnames(uniprot_virus)))]
 uniprot_virus<-isGOannot(x = uniprot_virus, cols = cols)
 uniprot_virus<-uniprot_virus |> arrange(locus_tag)
-write_tsv(uniprot_virus, paste0(base.path, "data/Annotations-virus/uniprot_virus.tsv"))
+write_tsv(uniprot_virus, paste0(base.path, "data/Annotations-virus/uniprot-virus-", lubridate::today(),".tsv"))
 #gentrome.fa.gz: This is the transcriptome file I used for salmon, containing host (cDNA+ncRNA) + virus (cDNA)
 fasta_headers_v <-
-  paste0(base.path2, "/gentrome.fa.gz") |> 
+  paste0(base.path2, "scratch/salmonI-v1.10.3/gentrome.fa.gz") |> 
   readLines() |>  
   str_subset("^>JF") |> #all virus genes in the file start with JF
   str_remove("^>")  # Remove leading ">"
@@ -124,9 +128,9 @@ annot_virus <- tibble(
 annot_virus #447 rows
 apply(annot_virus, 2, function(x) length(unique(x)))
 annot_virus<-annot_virus |> dplyr::select(-c("scaffold"))
-saverds(annot_virus, paste0(base.path, "data/Annotations-virus/annot_virus.rds"))
+saveRDS(annot_virus, paste0(base.path, "data/Annotations-virus/annot-virus-", lubridate::today(),".rds"))
 # ncbi
-source("dge/scripts/Functions.R")
+source("dge/Functions.R")
 
 ncbi_virus<-paste0(base.path, "data/Annotations-virus/ncbi_dataset_virus.tsv") |> read_tsv()
 ncbi_virus<-NAColOmit(ncbi_virus)
@@ -139,14 +143,14 @@ apply(ncbi_virus, 2, function(x) sum(is.na(x)))
 
   
 table(ncbi_virus$locus_tag %in% annot_virus$locus_tag)
-write_tsv(ncbi_virus, paste0(base.path, "data/Annotations-virus/ncbi_virus_alt.tsv"))
+write_tsv(ncbi_virus, paste0(base.path, "data/Annotations-virus/ncbi-virus-alt-", lubridate::today(),".tsv"))
 #combine
 annot_virus2<-left_join(annot_virus, ncbi_virus, by = c("locus_tag", "protein_id"))
 annot_virus2 |> dplyr::filter(protein_name != Name)
 annot_virus2<-annot_virus2 |> dplyr::select(-Name)
 #annot_virus2 |> dplyr::filter(description2 != description3)
 annot_virus2<-annot_virus2 |> dplyr::select(locus_tag:protein_id, protein_length, protein_name, everything())
-saverds(annot_virus2, paste0(base.path, "data/Annotations-virus/annot_virus2.rds"))
+saveRDS(annot_virus2, paste0(base.path, "data/Annotations-virus/annot-virus2-", lubridate::today(),".rds"))
 
 annot_virus3<-left_join(annot_virus2, uniprot_virus, by = 'locus_tag') 
 
@@ -164,10 +168,98 @@ annot_virus3 |> group_by(GOAnnotAvail) |> tally()
 #1 FALSE          228
 #2 TRUE           219
 
-saverds(annot_virus3, paste0(base.path, "data/Annotations-virus/annot_virus3.rds"))
-write_tsv(annot_virus3, file = paste0(base.path, "data/Annotations-virus/annot_virus_ext.tsv"))
+saveRDS(annot_virus3, paste0(base.path, "data/Annotations-virus/annot-virus3-", lubridate::today(),".rds"))
+write_tsv(annot_virus3, file = paste0(base.path, "data/Annotations-virus/annot-virus-ext-", lubridate::today(),".tsv"))
+
+#Extra:
+#You can import the cDNA and ncRNA fasta files and verify that the annotation above includes all sequences in these fasta files:
+
+c_dna_v <-Biostrings::readDNAStringSet("https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/010/974/645/GCA_010974645.1_ASM1097464v1/GCA_010974645.1_ASM1097464v1_cds_from_genomic.fna.gz") |>
+  names() |>
+  str_extract("^\\S+") |>
+  str_extract("(?<=lcl\\|)[^$]+")
+
+
+saveRDS(c_dna_v, file = paste0(base.path, "data/Annotations-virus/cdna-virus-", lubridate::today(),".rds"))
+
+
+# annot_virus <- annot_virus |> 
+#     dplyr::mutate(ensembl_gene_id = gene_id,
+#                   gene_symbol = "",
+#                   description = "") |>
+#   dplyr::select(ensembl_gene_id, gene_id, transcript_id, external_gene_name, description, biotype, origin)
+# data.table::fwrite(annot_virus, file = paste0(base.path, "data/annot_virus.gz"), compress = "gzip")
+
+## -- obsolete
+if(FALSE){
+#annot_virus_extended
+uniprot_virus<-uniprot_virus |> dplyr::select(Uniprot:`GO IDs`)
+#uniprot_virus <- uniprot_virus |> dplyr::select(-c("Entry Name"))
+annot_virus_extended <-
+  dplyr::left_join(annot_virus,uniprot_virus,by = c("gene_id"))
+
+
+annot_virus_extended<-annot_virus_extended |>
+    mutate(rowLabel = gene_id)
+
+write_tsv(annot_virus_extended, file = paste0(base.path, "data/annot_virus_ext.tsv"))
+}
+```
+
+
+# Combine annotations
+
+```{r, annot-combined, echo = T}
+
+
+#identical(annot_host_final, annot_host_extended)
+annot_host_ext<-annot_host_ext |> mutate(origin = "host")
+annot_combined <- dplyr::bind_rows(
+  annot_host_ext |> dplyr::select(rowLabel, gene_id,  transcript_id, biotype, description, gene_symbol, origin),
+  annot_virus_extended |> dplyr::select(rowLabel, gene_id, , transcript_id, biotype, description, origin) |> mutate(gene_symbol = NA, .after= "description"))
+annot_combined #39245 rows
+write_tsv(annot_combined, file = paste0(base.path, "data/annot_combined.tsv"))
+
+##########################
+
+sessionInfo() %>%
+  capture.output() %>%
+  writeLines(paste0("logs/sessionInfo-annotations-virus",lubridate::today(),".txt"))
+# sessionInfo() %>%
+#   capture.output() %>%
+#   writeLines(paste0("logs/annotation.txt"))
+
+##########################
+```
+
+
+
+
+```{r, label=sanity-checks, eval=F, echo = T}
+### Sanity Checks (optional)
+#----------------------------
+#all(c_dna_v %in% annot_virus$transcript_id) #TRUE
+
+#And if you’re curious, you can check which types of non-coding RNA you have in the annotation:
+#all(c(c_dna_h, c_dna_v, nc_rna_h) %in% annot_combined$transcript_id) #TRUE
+
+#annot_host |>
+#  dplyr::filter(transcript_id %in% nc_rna_h) |>
+#  dplyr::count(biotype, sort = TRUE) |>
+#  dplyr::mutate(prop=n/sum(n))
+
+#annot_combined |> 
+# dplyr::count(biotype, sort = TRUE) |>
+#   dplyr::mutate(prop=n/sum(n)) #98% of the annotation entries are host protein_coding.
+```
+
+
+# Obsolete
+
+```{r protti, include = F, eval=F}
+#No longer works in 2026 because of major uniprot changes.
 #-----Get GOs ----
-proteome<-protti::fetch_uniprot_proteome("181210", reviewed = F,
+proteome<-protti::fetch_uniprot_proteome("346673", reviewed = F,
                                                                max_tries = 10,
                                                                timeout = 220)
 
@@ -246,85 +338,4 @@ write_tsv(annot_virus4 |> dplyr::select(tx_id, locus_tag,protein_id:PreferredNam
 
 # all_lines<-read_lines(file = "~/Downloads/protein_result.txt",skip=0,progress = T)
 # myindex<-seq(from = 2, to = 2622, by = 4)
-
-#Extra:
-#You can import the cDNA and ncRNA fasta files and verify that the annotation above includes all sequences in these fasta files:
-
-c_dna_v <-Biostrings::readDNAStringSet("https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/010/974/645/GCA_010974645.1_ASM1097464v1/GCA_010974645.1_ASM1097464v1_cds_from_genomic.fna.gz") |>
-  names() |>
-  str_extract("^\\S+") |>
-  str_extract("(?<=lcl\\|)[^$]+")
-
-
-saverds(c_dna_v, file = paste0(base.path, "data/Annotations-virus/cdna_virus.rds"))
-
-
-# annot_virus <- annot_virus |> 
-#     dplyr::mutate(ensembl_gene_id = gene_id,
-#                   gene_symbol = "",
-#                   description = "") |>
-#   dplyr::select(ensembl_gene_id, gene_id, transcript_id, external_gene_name, description, biotype, origin)
-# data.table::fwrite(annot_virus, file = paste0(base.path, "data/annot_virus.gz"), compress = "gzip")
-
-## -- obsolete
-if(FALSE){
-#annot_virus_extended
-uniprot_virus<-uniprot_virus |> dplyr::select(Uniprot:`GO IDs`)
-#uniprot_virus <- uniprot_virus |> dplyr::select(-c("Entry Name"))
-annot_virus_extended <-
-  dplyr::left_join(annot_virus,uniprot_virus,by = c("gene_id"))
-
-
-annot_virus_extended<-annot_virus_extended |>
-    mutate(rowLabel = gene_id)
-
-write_tsv(annot_virus_extended, file = paste0(base.path, "data/annot_virus_ext.tsv"))
-}
-```
-
-
-# Combine annotations
-
-```{r, annot-combined, echo = T}
-
-
-#identical(annot_host_final, annot_host_extended)
-annot_host_ext<-annot_host_ext |> mutate(origin = "host")
-annot_combined <- dplyr::bind_rows(
-  annot_host_ext |> dplyr::select(rowLabel, gene_id,  transcript_id, biotype, description, gene_symbol, origin),
-  annot_virus_extended |> dplyr::select(rowLabel, gene_id, , transcript_id, biotype, description, origin) |> mutate(gene_symbol = NA, .after= "description"))
-annot_combined #39245 rows
-write_tsv(annot_combined, file = paste0(base.path, "data/annot_combined.tsv"))
-
-##########################
-
-sessionInfo() %>%
-  capture.output() %>%
-  writeLines(paste0("logs/sessionInfo-annotations-virus",lubridate::today(),".txt"))
-# sessionInfo() %>%
-#   capture.output() %>%
-#   writeLines(paste0("logs/annotation.txt"))
-
-##########################
-```
-
-
-
-
-```{r, label=sanity-checks, eval=F, echo = T}
-### Sanity Checks (optional)
-#----------------------------
-#all(c_dna_v %in% annot_virus$transcript_id) #TRUE
-
-#And if you’re curious, you can check which types of non-coding RNA you have in the annotation:
-#all(c(c_dna_h, c_dna_v, nc_rna_h) %in% annot_combined$transcript_id) #TRUE
-
-#annot_host |>
-#  dplyr::filter(transcript_id %in% nc_rna_h) |>
-#  dplyr::count(biotype, sort = TRUE) |>
-#  dplyr::mutate(prop=n/sum(n))
-
-#annot_combined |> 
-# dplyr::count(biotype, sort = TRUE) |>
-#   dplyr::mutate(prop=n/sum(n)) #98% of the annotation entries are host protein_coding.
 ```

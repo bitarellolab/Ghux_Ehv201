@@ -161,7 +161,7 @@ bb_theme <-  function() {
 #-----rstudio-font-settings
 if(TRUE){
 showtext::showtext_auto()
-showtext::showtext_opts(dpi=300)
+showtext::showtext_opts(dpi=150)
 
 if (interactive()) {
   options(device = "RStudioGD")
