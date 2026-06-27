@@ -9,7 +9,7 @@
 # Should be root directory of this repo
 datapath='/home/bbitarello/scratch'
 #mypath=$(pwd)
-mypath2=${datapath}/salmonI
+mypath2=${datapath}/salmonI-v1.10.3
 
 mkdir -p ${mypath2}
 
@@ -21,16 +21,16 @@ mkdir -p ${mypath2}
 rm ${mypath2}/gentrome*
 
 # transcriptome 1: host cDNA
-zcat ${datapath}/CCMP1516/v62/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.cdna.all.fa.gz > ${mypath2}/gentrome1.fa
+zcat ${datapath}/CCMP1516/v60/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.cdna.all.fa.gz > ${mypath2}/gentrome1.fa
 wc -l ${mypath2}/gentrome1.fa #795311
 # transcriptome 2: host ncRNA
-zcat ${datapath}/CCMP1516/v62/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.ncrna.fa.gz >> ${mypath2}/gentrome2.fa
+zcat ${datapath}/CCMP1516/v60/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.ncrna.fa.gz >> ${mypath2}/gentrome2.fa
 wc -l ${mypath2}/gentrome2.fa #3179
 # transcriptome 3: virus 
 zcat ${datapath}/EhV201/cds_from_genomic.fna.gz >> ${mypath2}/gentrome3.fa
 wc -l ${mypath2}/gentrome3.fa # 5217
 # genome 1: host genome
-zcat ${datapath}/CCMP1516/v62/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.dna.toplevel.fa.gz >> ${mypath2}/gentrome4.fa
+zcat ${datapath}/CCMP1516/v60/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.dna.toplevel.fa.gz >> ${mypath2}/gentrome4.fa
 wc -l ${mypath2}/gentrome4.fa #2806184
 
 cat ${mypath2}/gentrome1.fa ${mypath2}/gentrome2.fa ${mypath2}/gentrome3.fa ${mypath2}/gentrome4.fa > ${mypath2}/gentrome5.fa
@@ -42,7 +42,7 @@ sed -i.bak -e 's/lcl|//g' ${mypath2}/gentrome5.fa
 gzip ${mypath2}/gentrome5.fa
 
 #2. Make decoy file
-zgrep "^>" ${datapath}/CCMP1516/v62/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.dna.toplevel.fa.gz \
+zgrep "^>" ${datapath}/CCMP1516/v60/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.dna.toplevel.fa.gz \
    | cut -d " " -f 1 > ${mypath2}/decoys.txt
 sed -i.bak -e 's/>//g' ${mypath2}/decoys.txt
 wc  -l ${mypath2}/decoys.txt
