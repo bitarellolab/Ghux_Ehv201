@@ -9,7 +9,7 @@
 
 
 # INPUT and OUTPUT
-DECOYPATH="/home/bbitarello/scratch/salmonI/decoyIndex"
+DECOYPATH="/home/bbitarello/scratch/salmonI-v1.10.3/decoyIndex"
 # OUTPUT (change to decoy2 when using that)
 OUTDIR="/home/bbitarello/scratch/salmonQ-v1.10.3"
 FILEEND=".fp.fq.gz"
