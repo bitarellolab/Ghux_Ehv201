@@ -9,10 +9,10 @@ eval "$(conda shell.bash hook)"
 conda activate /home/bbitarello/miniconda3/envs/py3.13
 
 # for fastp results:
-out_dir=${base_dir}/multiqc/fastp-v022
+out_dir=${base_dir}/multiqc/fastp-v024
 mkdir -p ${out_dir}
 
-cd ${base_dir}/fastp
+cd ${base_dir}/fastp-v024
 
 run_mqtc_fastp() {
 multiqc . \

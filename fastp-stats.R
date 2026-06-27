@@ -2,7 +2,7 @@ library(data.table)
 library(tidyverse)
 source("dge/plot_funcs.R")
 fastp <- fread(
-  "~/Documents/rosalind-rna-seq-mirror/multiqc/fastp/multiqc_data_1/general_stats_table.tsv"
+  "~/Library/CloudStorage/OneDrive-brynmawr.edu/Ehux-project/rosalind-rna-seq-mirror/multiqc/fastp/multiqc_data_1/general_stats_table.tsv"
 )
 #fastp<-fastp |> pivot_longer(cols=colnames(fastp)[colnames(fastp)!="Sample"])
 
@@ -24,6 +24,7 @@ fastp2 <- fastp2 |> mutate(lane = as.numeric(lane))
 
 fastp3 <- tibble(left_join(fastp2, metadata))
 
+fastp3 |> mutate(sample_name2 = paste0(run_id, "_l", lane, "_", sample_name)) |> select(Sample, sample_name2) |> write_tsv("data/sample-names-multiqc.tsv")
 
 #fastp3 |> filter(sample_name=="HHQ_cntl_t1_3") |> select(-c(lane, barcode, run_id))
 #"AGAGGCAACC-CTAATGATGG"
