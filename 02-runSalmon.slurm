@@ -1,21 +1,21 @@
 #!/bin/bash
-#SBATCH --job-name=salmonA
+#SBATCH --job-name=salmon
 #SBATCH --mem=40gb
 #SBATCH --cpus-per-task=12
 #SBATCH -p high
 #SBATCH --array=1-80
-#SBATCH -o /home/bbitarello/scratch/logs/2026/salmonQ.%A-%a.log
-#SBATCH -e /home/bbitarello/scratch/logs/2026/salmonQ.%A-%a.err
+#SBATCH -o /home/bbitarello/scratch/logs/salmonQ-v1.10.3-latest.%A-%a.log
+#SBATCH -e /home/bbitarello/scratch/logs/salmonQ-v1.10.3-latest.%A-%a.err
 
 
 # INPUT and OUTPUT
 DECOYPATH="/home/bbitarello/scratch/salmonI/decoyIndex"
 # OUTPUT (change to decoy2 when using that)
-OUTDIR="/home/bbitarello/scratch/salmonQ-v1.11.4"
+OUTDIR="/home/bbitarello/scratch/salmonQ-v1.10.3"
 FILEEND=".fp.fq.gz"
 
 #mkdir -p ${OUTDIR}
-FFASTQDIR="/home/bbitarello/scratch/fastp/2026"
+FFASTQDIR="/home/bbitarello/scratch/fastp-v024"
 METADATA="/home/bbitarello/scratch/sample_ids.tsv"
 SAMPLE=$( awk -v ARRID="$SLURM_ARRAY_TASK_ID" 'FNR==ARRID { print $1 }' $METADATA )
 echo $SAMPLE
