@@ -51,6 +51,6 @@ conda config --add channels bioconda
 
 conda install bioconda::salmon==1.10.3
 
-salmon -v #1.11.4
+salmon -v #1.10.3
 
 
