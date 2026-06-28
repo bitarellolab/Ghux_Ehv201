@@ -23,7 +23,7 @@ multiqc . \
 --export \
 --verbose \
 --title "After fastp run" \
---replace-names "${proj_dir}/data/sample-names-multiqc.tsv"
+--sample-names "${proj_dir}/data/sample-names-multiqc.tsv"
 }
 
 run_mqtc_fastp

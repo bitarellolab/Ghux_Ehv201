@@ -36,3 +36,7 @@ fastp4|> select(Sample, sample_name2) |>
 
 plot1<-fastp3 |> ggplot(aes(x = fct_reorder(sample_name, `Reads After Filtering`), y = `Reads After Filtering`)) + geom_col()  + ylab("Reads After Filtering") + xlab("Sample") + bb_theme() + theme(axis.text.y = element_text(size = 12), axis.text.x =element_text(size = 6, angle = 85,vjust = 1, hjust = 1.3))
 plot1
+
+# Salmon
+
+read_tsv("~/")
