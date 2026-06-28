@@ -30,7 +30,7 @@ fastp4<-fastp3 |> mutate(sample_name2 = paste0(run_id, "_l", lane, "_", sample_n
   
 
 fastp4|> select(Sample, sample_name2) |>
-  write_tsv("data/sample-names-multiqc.tsv")
+  write_tsv("data/sample-names-multiqc.tsv", col_names = F)
 #fastp3 |> filter(sample_name=="HHQ_cntl_t1_3") |> select(-c(lane, barcode, run_id))
 #"AGAGGCAACC-CTAATGATGG"
 
