@@ -1,13 +1,13 @@
 *.DS_Store
 multiqc/fastp/*
-salmon/salmonq_all/*
 .Rproj.user
 MegaSAS.log
-test.slurm
-test.out
-data/Annotations-host/*gff*
-data/Annotations-host/*gtf*
-data/Annotations-host/*rds
+test*
+data/*/*gff*
+data/*/*gtf*
+data/*/*rds
+data/*RDS
+data/*rds
 data/Annotations-host/*gz
 data/Annotations-host/*RDS
 data/Annotations-host/*tsv
@@ -15,3 +15,4 @@ data/*.rds
 data/*.RDS
 data/*gz
 scratch/*
+logs/*

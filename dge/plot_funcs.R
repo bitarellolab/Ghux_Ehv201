@@ -1,24 +1,24 @@
 # Packages ----
 suppressPackageStartupMessages({
+  #fonts
   library(extrafont)
   library(systemfonts)
-  library(hrbrthemes)
+  library(showtext)
   library(sysfonts)
-  library(RColorBrewer)
-  library(GGally)
+  #colors and fluffs
   library(hrbrthemes)
   library(gcookbook)
-  library(extrafont)
-  library(showtext)
-  library(pheatmap)
-  library(RColorBrewer)
-  library(patchwork)
-  library(ComplexHeatmap)
-  library(gt)
   library(ggpubr)
-  library(svglite)
+  library(RColorBrewer)
   library(cols4all)
   library(circlize)
+  #plots
+  library(GGally)
+  library(patchwork)
+  library(pheatmap)
+  library(ComplexHeatmap)
+  library(gt)
+  library(svglite)
 })
 # Fonts ----
 #extrafont::font_import(prompt = F)
