@@ -56,8 +56,8 @@ setwd(base_path2)
 #subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
-subs <- "host";  sampSet <- "76samp" #
-#subs <- "host";  sampSet <- "79samp" #
+#subs <- "host";  sampSet <- "76samp" #
+subs <- "host";  sampSet <- "79samp" #
 res_path <- paste0(base_path, subs, "/", sampSet, "/")
 (ext <- paste0("_", sampSet,"_", subs))
 
@@ -87,11 +87,19 @@ if(sampSet == "10samp"){
 
 #FINAL COLDATA PLEASE CHECK!
 coldata <- read_tsv(paste0("data/coldata_", sampSet, ".txt"),show_col_types = FALSE)
+# check previously mislabelled samples (see FixMetadata.R)
+coldata |> select(files79, names) |> mutate(files79 = gsub("/quant.sf", "", gsub("/Users/bbitarello/Documents/Ehux-for-pub/salmonQ-v1.10.3/", "", files79))) |> filter(files79!=names)
+#should be:
+#HHQ_inf_t4_4     DMSO_cntl_t1_1
+#2 HHQ_inf_t2_2   DMSO_cntl_t3_3
+#3 HHQ_cntl_t4_4  DMSO_inf_t1_1 
+#4 HHQ_cntl_t2_2  DMSO_inf_t3_3 
+#5 DMSO_inf_t3_3  HHQ_cntl_t2_2 
+#6 DMSO_inf_t1_1  HHQ_cntl_t4_4 
+#7 DMSO_cntl_t3_3 HHQ_inf_t2_2  
+#8 DMSO_cntl_t1_1 HHQ_inf_t4_4  
+salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, ".RDS"))
 
-salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, ".rds"))
-#salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, "salmonv1.10.3.rds"))
-#check
-#table(names(salmon_files)==sample_meta$names)
 # Read in annotation data ----
 
 Sys.setenv(VROOM_CONNECTION_SIZE = 500000L)
@@ -101,27 +109,35 @@ if(subs == 'virus'){
 annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot_", subs, "4.rds"))
   annot<-annot |> mutate(rowLabel = accession, .after = locus_tag)
 }else if(subs == "host"){
-annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot_", subs, "3.rds"))
+annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
+annot<-annot |> distinct()
 
+#check if empty
 (dup_annot <- annot |> 
     group_by(locus_tag) |> 
     tally() |> 
     filter(n>1) |> 
     pull(locus_tag))
-
-annot <- annot |> 
-  mutate(rowLabel =
-  case_when(
-  is.na(Symbol) == F ~ Symbol,
-  is.na(Symbol) == T ~ locus_tag),
-         .after = "Symbol")
+#check if empty
+(dup_annot2 <- annot |> 
+    group_by(rowLabel) |> 
+    tally() |> 
+    filter(n>1) |> 
+    pull(rowLabel))
+##Ignore:
+#annot <- annot |> 
+#  mutate(rowLabel =
+#  case_when(
+#  is.na(Symbol) == F ~ Symbol,
+#  is.na(Symbol) == T ~ locus_tag),
+#         .after = "Symbol")
 #check
-annot |> 
-  group_by(locus_tag) |> 
-  summarise(N=length(unique(rowLabel))) |>
-  filter(N>1)
+#annot |> 
+#  group_by(locus_tag) |> 
+#  summarise(N=length(unique(rowLabel))) |>
+#  filter(N>1)
 
-saveRDS(annot, file = paste0(base_path2, "data/Annotations-", subs, "/annot-", subs, "-edgeR.rds"))
+#saveRDS(annot, file = paste0(base_path2, "data/Annotations-", subs, "/annot-", subs, "-edgeR.rds"))
 }
 }
 
@@ -141,7 +157,7 @@ library(edgeR)
 ## Make table for tximport: transcript to Gene map: https://bioconductor.org/packages/devel/bioc/vignettes/tximport/inst/doc/tximport.html#edgeR
 if(subs == 'host'){
 tx_to_gene <- annot |> 
-  dplyr::select(tx_id, locus_tag, rowLabel, tx_name, GeneName, Symbol, NrTranscripts)
+  dplyr::select(tx_id, locus_tag, rowLabel,tx_name, NrTranscripts)
 }else{
 tx_to_gene <- annot |> 
   dplyr::select(tx_id, locus_tag, rowLabel, everything())
@@ -152,6 +168,7 @@ txi <- tximport::tximport(salmon_files,
         type = "salmon", 
         tx2gene = tx_to_gene)
 saveRDS(txi, file = paste0(res_path, "txi", ext, ".rds"))
+
 }else{
 txi<-readRDS(file = paste0(res_path, "txi", ext, ".rds"))
 }

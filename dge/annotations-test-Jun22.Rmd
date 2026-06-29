@@ -6,6 +6,11 @@ output:
     toc: true
 ---
 
+# Notes
+
+* Goal: Generate customized annotation files for G.hux.
+* Must run before runnign DGE scripts.
+
 ```{r, setup, include=FALSE}
 #Setup
 knitr::opts_knit$set(
@@ -25,7 +30,7 @@ options(max.print = .Machine$integer.max, scipen = 999, stringsAsFactors = F, dp
 # Packages and other setup
 
 ```{r, pkgs-colors, echo = T, eval = T}
-#Packages
+# Load packages
 suppressPackageStartupMessages({
 library(tidyverse)
 #library(biomaRt)
@@ -41,13 +46,9 @@ conflicts_prefer(dplyr::select)
 (base.path <- path.expand("~/Documents/GitHub/Ehux_Ehv201/")) #change as needed
 (base.path2 <- path.expand("~/Documents/Ehux-for-pub"))
 source("dge/Functions.R")
-#(base.path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
-#(base.path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"))
 ```
 
-# Ensembl
-
-
+# EnsemblProtists Annotations
 
 ```{r, annotation-host, echo = T}
 #RUN ONCE AND SAVE OBJECT
@@ -189,6 +190,8 @@ apply(annot_host, 2, function(x)
 ```{r uniprot}
 
 # Uniprot
+#https://www.uniprot.org/uniprotkb?query=%28taxonomy_id%3A280463%29
+#https://www.uniprot.org/uniprotkb?query=%28taxonomy_id%3A2903%29
 uniprot_host <-
    paste0(base.path, "data/Annotations-host/uniprotkb_taxonomy_id_2903_2026_06_23.tsv.gz") |>
     read_tsv(col_names = T, col_types = cols())
@@ -207,16 +210,22 @@ uniprot_host<-uniprot_host |> dplyr::select(
       )
     )
 
+# fix gene ontology columns
 colnames(uniprot_host) <- gsub("Gene Ontology \\(GO\\)", "GO_GO", colnames(uniprot_host))
 
 colnames(uniprot_host) <- gsub("Gene Ontology \\(biological process\\)", "GO_BP", colnames(uniprot_host))
 
 colnames(uniprot_host) <- sub("Gene Ontology \\(cellular component\\)", "GO_CC", colnames(uniprot_host))
+
 colnames(uniprot_host) <- gsub("Gene Ontology \\(molecular function\\)", "GO_MF", colnames(uniprot_host))
+
+colnames(uniprot_host) <- gsub("Gene Ontology IDs", "GO_IDs", colnames(uniprot_host))
 
 uniprot_host<-uniprot_host |> 
   select(Uniprot=Entry, refSeq_prot = RefSeq, contains("GO"), `KEGG`,description = `Protein names`, contains("Names"), everything())
 
+
+# Get tx_id and locus_tag
 
 uniprot_host<-uniprot_host |>
   separate(EnsemblProtists, sep=";", into=c("tx_id1", "tx_id2"), remove = F) |> 
@@ -225,9 +234,12 @@ uniprot_host<-uniprot_host |>
         locus_tag = str_extract(uniprot_host$`Gene Names`, pattern =  "EMIHUDRAFT_[0-9]+"),.after = Uniprot)
 
 
+# some Uniprot entries are associated with more than one tx_id. Dealing with that...
 
-uniprot_host |> mutate(tx_id2 =ifelse(tx_id2=="", NA, tx_id2))
-uniprot_host<-uniprot_host |> mutate(tx_id2 =ifelse(tx_id2=="", NA, tx_id2))
+uniprot_host |> 
+  mutate(tx_id2 =ifelse(tx_id2=="", NA, tx_id2))
+uniprot_host<-uniprot_host |> 
+  mutate(tx_id2 =ifelse(tx_id2=="", NA, tx_id2))
 table(uniprot_host$tx_id %in% keep_these_host)
 #FALSE  TRUE 
 #  946 35018 
@@ -466,11 +478,12 @@ nrow(annot_host4)
 annot_host4 <- annot_host4 |> dplyr::select(-`Entry version`)
 annot_host4 |>
   group_by(is.na(gene_symbol)) |> tally()
+#1 FALSE                  918
+#2 TRUE                 36416
 
 
-colnames(annot_host4)<-gsub("Gene Ontology IDs", "GO_IDs", colnames(annot_host4))
-apply(annot_host4, 2, function(x)
-  sum(is.na(x)))
+sort(apply(annot_host4, 2, function(x)
+  sum(is.na(x))))
 
 annot_host4 <- annot_host4 |> 
   unite(description, contains("description"), sep = "; ") |>
@@ -480,7 +493,9 @@ annot_host4 |>
   filter(is.na(Uniprot)) |> 
   group_by(biotype) |> 
   tally() |> 
-  arrange(desc(n))
+  arrange(desc(n)) #189 prot. coding
+
+#let's fix that.
 
 temp<-annot_host4 |> 
   filter(is.na(Uniprot)) |> 
@@ -528,10 +543,9 @@ annot_host4 <- annot_host4 |>
              is.na(gene_symbol) == T ~ locus_tag
            ),
          .after = "gene_symbol")
-annot4 <- annot_host4 |> 
-  mutate(description = ifelse(description == "NA; NA", NA, description))
+
 annot_host <- annot_host4
-#annot_host$description <- gsub("NA; ", "", annot_host$description)
+#clean up
 remove(annot_host2, annot_host3, annot_host4)
 annot_host |> 
   group_by(is.na(gene_symbol)) |> 
@@ -539,6 +553,7 @@ annot_host |>
 #1 FALSE                  918
 #2 TRUE                 36416
 
+annot_host<-isGOannot(annot_host) #good so far
 
 annot_harriet<-fread(paste0(base.path, "data/Annotations-host/harriet_emihu1_target_protein_annotations.tsv"),  fill=TRUE,na.strings = c("NA", '-'), sep = "\t", sep2 = ",") |> 
   mutate(emihu1_protein=as.character(emihu1_protein))
@@ -548,6 +563,7 @@ annot_harriet |> group_by(is.na(Preferred_name)) |> tally()
 annot_harriet |> filter(!(is.na(Preferred_name))) |> dplyr::select(Preferred_name, orthogroup)
 #modify annot_host to merge
 colnames(annot_host)
+#make a column to be able to merge the two
 annot_host_ext<-annot_host |> 
   mutate(emihu1_protein=sub("EMIHUDRAFT_", "", locus_tag), .before = locus_tag)
 
@@ -598,6 +614,7 @@ for(g in dup_annot){
   annot$locus_tag[which(annot$locus_tag== g)]<-tmp2
   remove(tmp, tmp2, tmp3)
   }
+(dup_annot2<-annot |> group_by(rowLabel) |> tally() |> filter(n>1) |> pull(rowLabel))
 
 for(g in dup_annot2){
   tmp <- annot |> filter(rowLabel == g)
@@ -606,6 +623,9 @@ for(g in dup_annot2){
   remove(tmp, tmp2)
 }
 
+#check
+annot |> group_by(locus_tag) |> tally() |> filter(n>1)
+annot |> group_by(rowLabel) |> tally() |> filter(n>1)
 ## long rowLabels
 
 (longLab<- annot |> 
@@ -619,14 +639,103 @@ for(l in longLab){
 
 nrow(annot) == length(unique(annot$locus_tag))
 nrow(annot) == length(unique(annot$rowLabel))
+nrow(annot) == length(unique(annot$tx_id))
 gc()
 ## write file
 saveRDS(annot, paste0(base.path, "data/Annotations-host/annot-",lubridate::today(), ".rds"))
 
-#I'm here (Jun 23, 2026)
+# all good up to here
 ```
 
-## #I'm here (Jun 23, 2026) Host NCBI
+# Host ENA 
+
+```{r, host-rna}
+#remove pointless columns
+host_ena<-"https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-60/tsv/emiliania_huxleyi/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.60.ena.tsv.gz" |> 
+  read_tsv(show_col_types = FALSE) |> 
+  dplyr::select(-c("species", "taxid"))
+nrow(host_ena) # 38798
+apply(host_ena, 2, function(x) length(unique(x)))
+host_ena |> 
+  dplyr::filter(protein_stable_id!=secondary_accession)
+#remove pointless column
+host_ena<-host_ena |> dplyr::select(-"secondary_accession")
+apply(host_ena, 2, function(x) sum(is.na(x)))
+#rename
+host_ena<-host_ena |> dplyr::select(locus_tag = gene_stable_id,
+                          tx_id = transcript_stable_id,
+                          protein_id = protein_stable_id,
+                          ENA_accession = primary_accession)
+host_ena |> group_by(tx_id == protein_id) |> tally()
+#1 TRUE                  38554
+#2 NA                      244
+apply(host_ena, 2, function(x) sum(is.na(x)))
+table(host_ena$tx_id %in% annot$tx_id)
+#FALSE  TRUE 
+# 1464 37334 
+table(annot$tx_id %in% host_ena$tx_id)
+#TRUE 
+#37334 
+#all host tx_ids are in this ena object. Good.
+nrow(host_ena) #38798
+length(keep_these_host) #37334
+host_ena<-host_ena |> dplyr::filter(tx_id %in% keep_these_host)
+table(host_ena$tx_id %in% annot$tx_id)
+# TRUE 
+#37334 
+nrow(host_ena) #37334
+#check again
+apply(host_ena, 2, function(x) length(unique(x)))
+table(host_ena$locus_tag %in% annot$locus_tag) #it's because of the numbers I added for locus tags with more than one transcript
+#FALSE  TRUE 
+#   19 37315 
+table(annot$locus_tag %in% host_ena$locus_tag)
+#saveRDS(host_ena, file = paste0(base.path, "data/Annotations-host/ena-host-", lubridate::today(), ".rds"))
+
+write_tsv(host_ena, file=paste0(base.path, "data/Annotations-host/ena-host-", lubridate::today(), ".tsv"))
+## combine
+annot_host2<-left_join(annot, host_ena,by = c("locus_tag", "tx_id")) 
+temp<-host_ena[!(host_ena$locus_tag %in% annot$locus_tag),]$locus_tag
+
+res<-lapply(temp, function(i) {
+  temp2<-annot_host2 |> filter(grepl(i, locus_tag))
+  temp2<-temp2 |> mutate(locus_tag2 = locus_tag)
+  temp2<-temp2 |> mutate(locus_tag = gsub("-(1|2)", "", locus_tag2))
+ temp2<-left_join(temp2, host_ena |> filter(grepl(i, locus_tag)) |> select(-"protein_id"), by = c("locus_tag", "tx_id"))
+  temp2<-temp2 |> mutate(locus_tag = locus_tag2)
+  
+})
+temp2<-do.call(rbind, res)
+
+test<-
+ bind_rows(annot_host2 |> filter(!(locus_tag %in% temp2$locus_tag2)),
+temp2 |> select(-locus_tag2)
+)
+
+annot_host2<-test |>  
+  dplyr::select(locus_tag, tx_id, tx_name, biotype, everything()) |>
+  select(-c("ENA_accession.x","ENA_accession.y"))
+annot_host2<-annot_host2 |> mutate(biotype = sub("_", "-", biotype))
+
+tmp<-annot_host2 |> 
+  group_by(locus_tag) |> 
+  tally(name = "NrTranscripts")
+annot_host2<-left_join(annot_host2, tmp)
+annot_host2<-annot_host2 |> arrange(locus_tag)
+annot_host2<-annot_host2 |> dplyr::select(tx_id, locus_tag, tx_name, protein_id, biotype, UniqueLocusTag, NrTranscripts, everything())
+
+saveRDS(annot_host2,paste0(base.path,"data/Annotations-host/annot-host-ext2-", lubridate::today(),".rds"))
+
+write_tsv(annot_host2,paste0(base.path, "data/Annotations-host/tx-to-gene-host-", lubridate::today(),".tsv"))
+#I'm here (Jun 28, 2026). All good up to here.
+
+#temp<-as.data.frame(host_ena);
+#openxlsx::addWorksheet(wb, sheetName = "ena")
+#openxlsx::writeData(wb, sheet = "ena", temp)
+#remove(temp);gc();getsizes()
+```
+
+## Old: Host NCBI
 
 ```{r, host-ncb}
 #ok for now
@@ -733,71 +842,6 @@ getsizes()
 ```
 
 
-## Host ENA 
-```{r, host-rna}
-#remove pointless columns
-host_ena<-"https://ftp.ensemblgenomes.ebi.ac.uk/pub/protists/release-62/tsv/emiliania_huxleyi/Emiliania_huxleyi.Emiliana_huxleyi_CCMP1516_main_genome_assembly_v1.0.62.ena.tsv.gz" |> 
-  read_tsv(show_col_types = FALSE) |> 
-  dplyr::select(-c("species", "taxid"))
-nrow(host_ena) # 38798
-apply(host_ena, 2, function(x) length(unique(x)))
-host_ena |> 
-  dplyr::filter(protein_stable_id!=secondary_accession)
-#remove pointless column
-host_ena<-host_ena |> dplyr::select(-"secondary_accession")
-apply(host_ena, 2, function(x) sum(is.na(x)))
-#rename
-host_ena<-host_ena |> dplyr::select(locus_tag = gene_stable_id,
-                          tx_id = transcript_stable_id,
-                          protein_id = protein_stable_id,
-                          ENA_accession = primary_accession)
-host_ena |> group_by(tx_id == protein_id) |> tally()
-#1 TRUE                  38554
-#2 NA                      244
-apply(host_ena, 2, function(x) sum(is.na(x)))
-table(host_ena$tx_id %in% annot_host$tx_id)
-#FALSE  TRUE 
-# 1464 37334 
-table(annot_host$tx_id %in% host_ena$tx_id)
-#TRUE 
-#37334 
-#all host tx_ids are in this ena object. Good.
-nrow(host_ena) #38798
-length(keep_these_host) #37334
-host_ena<-host_ena |> dplyr::filter(tx_id %in% keep_these_host)
-table(host_ena$tx_id %in% annot_host$tx_id)
-# TRUE 
-#37334 
-nrow(host_ena) #37334
-#check again
-apply(host_ena, 2, function(x) length(unique(x)))
-table(host_ena$locus_tag %in% annot_host$locus_tag)
-table(annot_host$locus_tag %in% host_ena$locus_tag)
-saveRDS(host_ena, file = paste0(base.path, "data/Annotations-host/ena-host-", lubridate::today(), ".rds"))
-
-write_tsv(host_ena, file=paste0(base.path, "data/Annotations-host/ena-host-", lubridate::today(), ".tsv"))
-## combine
-annot_host2<-left_join(annot_host, host_ena,by = c("locus_tag", "tx_id")) 
-annot_host2<-annot_host2 |>  
-  dplyr::select(locus_tag, tx_id, tx_name, biotype, everything())
-annot_host2<-annot_host2 |> mutate(biotype = sub("_", "-", biotype))
-
-tmp<-annot_host2 |> 
-  group_by(locus_tag) |> 
-  tally(name = "NrTranscripts")
-annot_host2<-left_join(annot_host2, tmp)
-annot_host2<-annot_host2 |> arrange(locus_tag)
-annot_host2<-annot_host2 |> dplyr::select(tx_id, locus_tag, tx_name, protein_id, biotype, UniqueLocusTag, NrTranscripts, everything())
-
-saveRDS(annot_host2,paste0(base.path, "data/Annotations-host/annot-host2-", lubridate::today(),".rds"))
-
-write_tsv(annot_host2,paste0(base.path, "data/Annotations-host/tx-to-gene-host-", lubridate::today(),".tsv"))
-
-temp<-as.data.frame(host_ena);
-openxlsx::addWorksheet(wb, sheetName = "ena")
-openxlsx::writeData(wb, sheet = "ena", temp)
-remove(temp);gc();getsizes()
-```
 
 ## Combine ENA+NCBI+GFF
 

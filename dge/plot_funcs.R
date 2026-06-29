@@ -30,7 +30,7 @@ gdtools::register_gfont(family = "Roboto Condensed")
 systemfonts::get_from_google_fonts(family = "Roboto Condensed")
 #fonts <- systemfonts::system_fonts()
 systemfonts::fonts_as_import(family = "Roboto Condensed")
-systemfonts::match_font("Roboto Condensed")
+systemfonts::match_fonts("Roboto Condensed")
 #extrafont::font_import(paths= "/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/hrbrthemes/fonts/", recursive = T, prompt = F)
 
   # For tibble decimal points, no rounding

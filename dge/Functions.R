@@ -214,11 +214,18 @@ mclapply2 <- function(X,
 ## check if any GO annot
 
 isGOannot <- function(x = x,
-                      cols = c("GO_BP", "GO_CC", "GO_MF", "GO_GO", "GO_IDs", "GOs")) {
+                      cols = c("GO_BP", "GO_CC", "GO_MF", "GO_GO", "GO_IDs")) {
   x |> mutate(GOAnnotAvail = rowSums(is.na(x |> dplyr::select({
     cols
   })) == F, na.rm = T) != 0)
 }
+
+#isGOannot <- function(x = x,
+#                      cols = c("GO_BP", "GO_CC", "GO_MF", "GO_GO", "GO_IDs", "GOs")) {
+#  x |> mutate(GOAnnotAvail = rowSums(is.na(x |> dplyr::select({
+#    cols
+#  })) == F, na.rm = T) != 0)
+#}
 
 
 # Find Top Degs and plot Volcano ----
