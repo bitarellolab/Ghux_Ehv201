@@ -16,3 +16,4 @@ data/*.RDS
 data/*gz
 scratch/*
 logs/*
+MegaSAS.log

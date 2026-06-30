@@ -38,8 +38,10 @@ sbatch 02-runSalmon.slurm
 
 ./03-runMultiQC.sh
 
-# 4. Metadata
+# 4. Annotations
 
+dge/04-annotations-host-new.Rmd
+dge/04-annotations-virus-new.Rmd
 
 # 4. DGE
 
