@@ -1,0 +1,1 @@
+Files in this folder are large and so the directory is in the .gitignore list. These files are provided elsewhere, so when cloning the repo, make sure to copy the appropriate files into this directory to run the scripts (or adjust the paths accordingly).

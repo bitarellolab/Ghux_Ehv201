@@ -193,7 +193,7 @@ salmon_df <-
   salmon_files |>
   map_df(read_tsv, .id = "sample_name", col_types = cols())
 
-#for SOM
+#for SOM, run once:
 if(sampSet=="79samp"){
   salmon_df |> write_tsv(paste0(base_path, "salmon-output-79samples.tsv"))
   
@@ -239,7 +239,7 @@ tx_to_gene <- annot |>
   dplyr::select(tx_id, locus_tag, rowLabel, everything())
 }
 
-if(TRUE){#Run once #--------------------
+if(FALSE){#Run once #--------------------
 salmon_gene_quants <-
   salmon_df |>
     dplyr::filter(Name %in% tx_to_gene$tx_id) |>
@@ -276,8 +276,6 @@ ddsTxi <- DESeq2::DESeqDataSetFromTximport(
 ## Check for nr genes with very low counts
 rcounts<-counts(ddsTxi, normalized = F)
 dim(rcounts)
-#head(colMeans(rcounts))
-#head(rowMeans(rcounts))
 cat("Genes with zero reads across all samples:", "\n")
 table(rowSums(rcounts)==0)
 table(colMeans(rcounts)<10)
@@ -386,7 +384,7 @@ gc()
 ## https://support.bioconductor.org/p/81094/
 ## Decide about size factors method: poscounts vs ratio
 
-if(TRUE){#run once
+if(FALSE){#run once
 
 ## See deseq2 documentation.
 ## fits<-c('local', 'parametric', 'mean', 'glmGamPoi')
@@ -509,7 +507,7 @@ dds <- dds |> estimateDispersions(fit = ftype)
 nsub <- min(c(sum(rowMeans(counts(dds, normalized=T))>5), 1000))
 
 
-if(TRUE){ #run once
+if(FALSE){ #run once to figure this out, then set to false
 rld_blind <- DESeq2::rlog(dds, fitType = ftype, blind = T) 
 vsd_blind<-DESeq2::vst(dds, fitType = ftype, blind = T, nsub = nsub)
 rld <- DESeq2::rlog(dds, fitType = ftype, blind = F)
@@ -670,10 +668,8 @@ poisdd <- PoissonDistance(t(counts(dds)), type = 'mle', alpha = bestt)
 }else{
 poisdd <- PoissonDistance(t(counts(dds)), type = 'deseq', alpha = bestt)  #this method generates NAs for virus so does not work for heatmaps
 }
-#samplePoisDistMatrix <- as.matrix(poisd$dd )
 samplePoisDistMatrix2 <- as.matrix(poisdd$dd )
-#rownames(samplePoisDistMatrix) <- PrepNamesForPlots2(colData(dds)$names)
-#rownames(samplePoisDistMatrix) <- gsub("_inf_", "_", colData(dds)$names)
+
 if(subs == 'virus'){
 rownames(samplePoisDistMatrix2) <- gsub("_inf_", "_", colData(dds)$names)
 colnames(samplePoisDistMatrix2)<-gsub("_inf_", "_", colData(dds)$names)
