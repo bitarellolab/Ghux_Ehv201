@@ -44,10 +44,9 @@ conflicts_prefer(base::remove)
 
 ```{r, setup2, eval = T, echo = F, include = T, cache = F}
 ## Adjust these to your actual file paths
-base_path <- "~/Documents/Ehux-for-pub/scratch/"
+base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/")
 ## Working directory
-base_path2 <- "~/Documents/Github/Ehux_Ehv201/"
-setwd(base_path2)
+setwd(base_path)
 ## Select subset of genes to look at. 
 
 ## Options: 
@@ -58,7 +57,7 @@ setwd(base_path2)
 #subs <- "host";  sampSet <- "76samp" #
 subs <- "host";  sampSet <- "79samp" #
 
-res_path <- paste0(base_path, subs, "/", sampSet, "/")
+res_path <- paste0(base_path, "/scratch/", subs, "/", sampSet, "/")
 (ext <- paste0("_", sampSet,"_", subs))
 
 trt_vir_cols<-c(paired_cols[1:2], paired_cols[7:8])
@@ -195,13 +194,13 @@ salmon_df <-
 
 #for SOM, run once:
 if(sampSet=="79samp"){
-  salmon_df |> write_tsv(paste0(base_path, "salmon-output-79samples.tsv"))
+  salmon_df |> write_tsv(paste0(res_path, "salmon-output-79samples.tsv"))
   
 }
 # Read in annotation data ----
 
 if(subs=='host'){
- annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
+ annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
 annot<-annot |> distinct()
 
 #check if empty
