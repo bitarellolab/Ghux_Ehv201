@@ -51,9 +51,9 @@ base_path2 <- "~/Documents/Github/Ehux_Ehv201/"
 setwd(base_path2)
 ## Select subset of genes to look at. 
 
-## Options: 
-subs <- "virus"; sampSet <- "39samp" #
-#subs <- "virus"; sampSet <- "29samp"  # 
+## Options (select one and comment out the others):
+#subs <- "virus"; sampSet <- "39samp" #
+subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
