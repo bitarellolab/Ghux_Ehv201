@@ -17,3 +17,4 @@ data/*gz
 scratch/*
 logs/*
 MegaSAS.log
+old-stuff/*
