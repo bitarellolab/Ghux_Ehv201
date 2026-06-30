@@ -53,13 +53,14 @@ setwd(base_path2)
 
 ## Options (select one and comment out the others):
 #subs <- "virus"; sampSet <- "39samp" #
-subs <- "virus"; sampSet <- "29samp"  # 
+#subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
-#subs <- "virus"; sampSet <- "10samp" #
+subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
 #subs <- "host";  sampSet <- "79samp" #
 res_path <- paste0(base_path, subs, "/", sampSet, "/")
-(ext <- paste0("_", sampSet,"_", subs, "-", lubridate::today()))
+(ext <- paste0("_", sampSet,"_", subs))
+(ext2 <- paste0("_", sampSet,"_", subs, "-", lubridate::today()))
 
 
 if(subs == 'virus'){
@@ -103,14 +104,16 @@ salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, ".rds"))
 # Read in annotation data ----
 
 Sys.setenv(VROOM_CONNECTION_SIZE = 500000L)
-if(TRUE){ #updated with new host annot 07/21/25
+#if(TRUE){ #updated with new host annot 07/21/25
 if(subs == 'virus'){
 #just virus
-annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-virus-2-latest.rds"))
-annot |> group_by(tx_id) |> tally() |> filter(n>1)
-annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
-saveRDS(annot, paste0(base_path2, "data/Annotations-virus/annot-virus-edgeR.rds"))
+#run once ----
+#annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-virus-2-latest.rds"))
+#annot |> group_by(tx_id) |> tally() |> filter(n>1)
+#annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
+#saveRDS(annot, paste0(base_path2, "data/Annotations-virus/annot-virus-edgeR.rds"))
 #annot<-annot |> mutate(rowLabel = accession, .after = locus_tag)
+annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds")
 }else if(subs == "host"){
 annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
 annot<-annot |> distinct()
@@ -142,7 +145,7 @@ annot<-annot |> distinct()
 
 #saveRDS(annot, file = paste0(base_path2, "data/Annotations-", subs, "/annot-", subs, "-edgeR.rds"))
 }
-}
+#}
 
 ```
 
