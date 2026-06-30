@@ -1039,11 +1039,11 @@ genes_keep_final<-rownames(dds)
 }
 gc()
 
-## Size factors sanity check ---
+## Size factors sanity check (optional)---
 #https://support.bioconductor.org/p/9135244/
 #https://support.bioconductor.org/p/97676/
 
-if(TRUE){ #run once
+if(FALSE){ #run once
 nm <- assays(dds)[["avgTxLength"]]
 sf_deseq <- estimateSizeFactorsForMatrix(counts = counts(dds) / nm, type = sftype)
 #plot(x=colMeans(counts(ddsTxi)), y=sf_deseq)
@@ -1052,9 +1052,9 @@ saveRDS(sf_deseq, paste0(res_path, "deseq_sizeFactors", ext, '.rds'))
 ## For comparison with dds, above
 ddsTxi2 <- DESeq2::DESeqDataSetFromTximport(
   txi = txi, colData = coldata, design = ~ batch + condition) 
-ddsTxi2 <- ddsTxi2[genes_keep,] |> 
+ddsTxi2 <- ddsTxi2[genes_keep_final,] |> 
   estimateSizeFactors(type = sftype) |> estimateDispersions(fit = ftype)
- dds2 <- nbinomWaldTest(ddsTxi2, maxit=500) #
+ dds2 <- nbinomWaldTest(ddsTxi2, maxit=1000) #
 
 #saveRDS(dds2, file = paste0(res_path,"dds2", ext, ".rds"))
 
@@ -1068,13 +1068,11 @@ identical(sf_deseq, sf_deseq2)
 identical(counts(dds, normalize = T), counts(dds2, normalize = T))
 } ##-End of sanity check
 
-
-
 ```
 # LRT
 
 ```{r, lrt, fig.width = 12, show.test = T}
-if(TRUE){
+if(FALSE){
 if(subs == 'host'){
 ddsTxiLRT <- DESeq2::DESeqDataSetFromTximport(
      txi = txi, colData = coldata, design = ~ batch + timePt + trt_vir + timePt:trt_vir)
@@ -1530,9 +1528,7 @@ p5<-ggplot(rest, aes(x = pvalue, col = lfcGroup)) + stat_ecdf(geom = "step") + b
 lapply(subsetCL, function(x) VolcanoFunc(cont = x))
 
 
-```
 
-```{r end}
 ## End ---
 sessionInfo()
 
@@ -1543,9 +1539,9 @@ sessionInfo() |>
 ```
 
 
+# Graveyard (obsolete)
 
-
-```{r deg-reports, fig.showtext = T,fig.width = 12, eval = F, include = F}
+```{r deg-reports, fig.showtext = T,fig.width = 12, eval = F, include = F, echo = F}
 if(FALSE){
 ## another sanity check
 avec<-c(mean(sf_deseq[grepl("t1", names(sf_deseq))]),
@@ -1587,9 +1583,6 @@ saveRDS(degs, paste0(res_path, "degResults", ext, ".rds"))
 }else{
 degs<-readRDS(paste0(res_path, "degResults", ext, ".rds"))  
 }
-```
-
-```{r, cont1, fig.showtext=T, eval = F, include = F}
 
 # run_glm_plots <- function(cont = contrasts[[16]], alpha = 0.05) {
 #  
@@ -1772,11 +1765,6 @@ pdf(paste0(res_path, "MAPlot_p0.05_lfc0.5_inft4", ext, ".pdf"))
 DESeq2::plotMA(res, ylim=c(-3,3), cex=.8)
 abline(h=c(-0.5,0.5), col="dodgerblue", lty = 2, lwd=1)
 dev.off()
-```
-
-
-
-```{r, cont1-lrt2, eval = F, include = F}
 
 #check this contrast
 # INF-t4 sanity check
@@ -1815,10 +1803,7 @@ pdf(paste0(res_path, "MAPlot_p0.05_lfc0.5_inft4", ext, ".pdf"))
 DESeq2::plotMA(res, ylim=c(-3,3), cex=.8)
 abline(h=c(-0.5,0.5), col="dodgerblue", lty = 2, lwd=1)
 dev.off()
-```
 
-
-```{r, cont1-lrt, eval = F, include = F}
 
 #LRT
 #ddsLRT <- DESeq(dds, test="LRT", reduced = ~batch)
