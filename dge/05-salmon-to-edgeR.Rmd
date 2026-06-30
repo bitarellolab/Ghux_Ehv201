@@ -52,12 +52,12 @@ setwd(base_path2)
 ## Select subset of genes to look at. 
 
 ## Options: 
-#subs <- "virus"; sampSet <- "39samp" #
+subs <- "virus"; sampSet <- "39samp" #
 #subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
-subs <- "host";  sampSet <- "79samp" #
+#subs <- "host";  sampSet <- "79samp" #
 res_path <- paste0(base_path, subs, "/", sampSet, "/")
 (ext <- paste0("_", sampSet,"_", subs))
 
@@ -88,8 +88,8 @@ if(sampSet == "10samp"){
 #FINAL COLDATA PLEASE CHECK!
 coldata <- read_tsv(paste0("data/coldata_", sampSet, ".txt"),show_col_types = FALSE)
 # check previously mislabelled samples (see FixMetadata.R)
-coldata |> select(files79, names) |> mutate(files79 = gsub("/quant.sf", "", gsub("/Users/bbitarello/Documents/Ehux-for-pub/salmonQ-v1.10.3/", "", files79))) |> filter(files79!=names)
-#should be:
+coldata |> select(files, names) |> mutate(files = gsub("/quant.sf", "", gsub("/Users/bbitarello/Documents/Ehux-for-pub/salmonQ-v1.10.3/", "", files))) |> filter(files!=names)
+#should be (or a subset of):
 #HHQ_inf_t4_4     DMSO_cntl_t1_1
 #2 HHQ_inf_t2_2   DMSO_cntl_t3_3
 #3 HHQ_cntl_t4_4  DMSO_inf_t1_1 
@@ -98,7 +98,7 @@ coldata |> select(files79, names) |> mutate(files79 = gsub("/quant.sf", "", gsub
 #6 DMSO_inf_t1_1  HHQ_cntl_t4_4 
 #7 DMSO_cntl_t3_3 HHQ_inf_t2_2  
 #8 DMSO_cntl_t1_1 HHQ_inf_t4_4  
-salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, ".RDS"))
+salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, ".rds"))
 
 # Read in annotation data ----
 
@@ -250,7 +250,7 @@ pivot_longer(as.data.frame(pseudoCounts), cols = colnames(pseudoCounts)) |>
   ylab("log2(counts+1)") +
   theme(axis.text.x = element_text(angle = 90, size = 8,vjust = 1))
 
-ggsave(paste0(res_path, "figs/edgeR_pseudocounts_boxplot_BefFilt", ext, ".pdf"), device = cairo_pdf, height =  4)
+ggsave(paste0(res_path, "figs/edgeR_pseudocounts_boxplot_BefFilt", ext, ".pdf"), device = cairo_pdf, width =  10)
 
 pivot_longer(as.data.frame(pseudoCounts), cols = colnames(pseudoCounts)) |> 
     mutate(SplitSampleName(name)) |> 
@@ -266,7 +266,7 @@ scale_fill_manual(values = trt_vir_cols) +
   ylab("log2(counts+1)") + 
   theme(axis.text.x = element_text(angle = 90, size = 8,vjust = 1))
 
-ggsave(paste0(res_path, "figs/edgeR_pseudocounts_violin_BefFilt", ext, ".pdf"), device = cairo_pdf, height = 5)  
+ggsave(paste0(res_path, "figs/edgeR_pseudocounts_violin_BefFilt", ext, ".pdf"), device = cairo_pdf, width = 10)  
 }
 
 # pdf(paste0(res_path, "pseudoCounts_BefFilt", ext, ".pdf"))
@@ -290,7 +290,7 @@ ddist<-as.dist(ddist)
 pheatmap1<-MyPheatmapDist(dmat,color = prgn, main = "Correlation of log(CPM), unfiltered genes", clustering_distance_cols = ddist , clustering_distance_rows = ddist)
 save_pheatmap_png(pheatmap1,paste0(res_path, "figs/edgeR_heatmap1_cpmLog_corr_BefFilt", ext, ".png"), width=1600)
 
-library("PoiClaClu")
+library("PoiClaClu") # heatmaps using poisson distance instead
 if(sampSet != "39samp"){
 poisd <- PoissonDistance(t(cts), type = 'deseq')
 }else{
@@ -368,6 +368,7 @@ dev.off()
 ppca0a
 ppca0b
 }
+#end of exploration. Now to filtering out problematic genes.
 ```
 
 ## QC after filtering out genes
@@ -452,7 +453,7 @@ pivot_longer(as.data.frame(pseudoCounts), cols = colnames(pseudoCounts)) |>
   ylab("log2(counts+1)") +
   theme(axis.text.x = element_text(angle = 90, size = 8,vjust = 1))
 
-ggsave(paste0(res_path, "figs/edgeR_pseudocounts_boxplot_AftFilt", ext, ".pdf"), device = cairo_pdf, width = 12)
+ggsave(paste0(res_path, "figs/edgeR_pseudocounts_boxplot_AftFilt", ext, ".pdf"), device = cairo_pdf, width = 1)
 
 pivot_longer(as.data.frame(pseudoCounts), cols = colnames(pseudoCounts)) |> 
     mutate(SplitSampleName(name)) |> 
@@ -468,7 +469,7 @@ scale_fill_manual(values = trt_vir_cols) +
   ylab("log2(counts+1)") + 
   theme(axis.text.x = element_text(angle = 90, size = 8,vjust = 1))
 
-ggsave(paste0(res_path, "figs/edgeR_pseudocounts_violin_AftFilt", ext, ".pdf"), device = cairo_pdf, width = 12)  
+ggsave(paste0(res_path, "figs/edgeR_pseudocounts_violin_AftFilt", ext, ".pdf"), device = cairo_pdf, width = 10)  
 }
 
 
@@ -600,7 +601,7 @@ lfc <-  log2(1.5) #fold effect of |1.5|
 lfc <-NULL
 }
 (lfc)
-run_qlf <- function(i, alpha = 0.05) {
+run_qlf <- function(i, alpha2 = 0.05) {
 
     comb_i <- combinations[ , i]
     contrasts_i <- rep(0, length(gs)) 
@@ -608,20 +609,20 @@ run_qlf <- function(i, alpha = 0.05) {
     contrasts_i[comb_i[2]] <- 1 #exp
     if(is_null(lfc)){
     qlf <- glmQLFTest(fit, contrast = contrasts_i)
-    print(summary(decideTests(qlf, contrast=contrasts_i, adjust.method = 'BH',p.value = alpha, lfc = 0)))
+    print(summary(decideTests(qlf, contrast=contrasts_i, adjust.method = 'BH',p.value = alpha2, lfc = 0)))
     res <- 
-	topTags(qlf, n = Inf, p.value = alpha) |> 
+	topTags(qlf, n = Inf, p.value = alpha2) |> 
 	as.data.frame() |>
-	as_tibble(rownames = "gene_id")
+	as_tibble(rownames = "locus_tag")
     }else{
     tr <- glmTreat(fit, contrast=contrasts_i, lfc = lfc)
-    print(summary(decideTests(tr, contrast=contrasts_i, adjust.method = 'BH',p.value = alpha, lfc = lfc)))
+    print(summary(decideTests(tr, contrast=contrasts_i, adjust.method = 'BH',p.value = alpha2, lfc = lfc)))
     
   
     res <- 
-	topTags(tr, n = Inf, p.value = alpha) |> 
+	topTags(tr, n = Inf, p.value = alpha2) |> 
 	as.data.frame() |>
-	as_tibble(rownames = "gene_id")
+	as_tibble(rownames = "locus_tag")
 }
     if (nrow(res) > 0) {
 
@@ -648,8 +649,15 @@ qlf_all <-
 gc()
 #dev.off()
 qlf_all<-qlf_all |> 
-  mutate(contrast = paste0(qlf_all$group1, "v", qlf_all$group2))
-qlf_all<-qlf_all |> rename(locus_tag = gene_id)
+  mutate(contrast = paste0(qlf_all$group1, "v", qlf_all$group2)) 
+
+conts_of_interest<-c(paste0("HHQ_inf_t", 1:4, "vHHQ_cntl_t", 1:4),
+      paste0("DMSO_inf_t", 1:4, "vDMSO_cntl_t", 1:4),
+       paste0("HHQ_cntl", 1:4, "vDMSO_cntl_t", 1:4),
+      paste0("HHQ_inf", 1:4, "vDMSO_inf_t", 1:4)
+     )   
+
+
 qlf_all<-qlf_all |>
     left_join(distinct(tx_to_gene, locus_tag, rowLabel), by = "locus_tag") 
 
@@ -658,17 +666,21 @@ qlf_all <- qlf_all |>
 
 qlf_all <- qlf_all |> 
   mutate(DIR = ifelse(logFC >0, "UP", ifelse(logFC < 0, "DOWN", NA)))
-
+   
+#qlf_all<-qlf_all |> filter(contrast %in% conts_of_interest)
+#qlf_all<-na.omit(qlf_all)
 write_tsv(qlf_all, paste0(res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv"))
 }else{
 qlf_all<-read_tsv(paste0(res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv"))  
 }
-
+          
 qlf_all |>  
+  filter(contrast %in% conts_of_interest) |>
   group_by(contrast, .drop = FALSE) |>  
   tally() |> 
   arrange(desc(n)) |>
   gt()
+
 
 
 ```
@@ -688,7 +700,7 @@ combinations2 <- combn(seq_len(length(gs)), 2)
 #LRT
 if(TRUE){ #run once
 fitLRT <- glmFit(y2, design2, robust=TRUE)
-run_lrt <- function(i, alpha = 0.05) {
+run_lrt <- function(i, alpha2 = 0.05) {
     
     comb_i <- combinations[ , i]
     contrasts_i <- rep(0, length(gs)) 
@@ -696,16 +708,16 @@ run_lrt <- function(i, alpha = 0.05) {
     contrasts_i[comb_i[2]] <- 1 #exp
 
    lrt <- glmLRT(fitLRT, contrast = contrasts_i)
-    print(summary(decideTests(lrt, contrast=contrasts_i, adjust.method = 'BH',p.value = alpha, lfc = 0)))
+    print(summary(decideTests(lrt, contrast=contrasts_i, adjust.method = 'BH',p.value = alpha2, lfc = 0)))
     #pdf(paste0(res_path, "LRT_plotMD_", gs[comb_i[1]], "v", gs[comb_i[2]], ext, ".pdf"))
   #plotMD(lrt,bg.pch=1, bg.cex=0.5,contrast = contrasts_i, ylim = c(-3,3))
  # abline(h=c(0.5,-0.5),col="dodgerblue")
   #abline(h=c(1,-1),col="#D55E00", lty = 2)
   #dev.off()
     res <- 
-	topTags(lrt, n = Inf, p.value = alpha) |> 
+	topTags(lrt, n = Inf, p.value = alpha2) |> 
 	as.data.frame() |>
-	as_tibble(rownames = "gene_id")
+	as_tibble(rownames = "locus_tag")
 
     if (nrow(res) > 0) {
 
@@ -729,7 +741,7 @@ gc()
 
 lrt_all<-lrt_all |> 
   mutate(contrast = paste0(lrt_all$group1, "v", lrt_all$group2))
-lrt_all<-lrt_all |> rename(locus_tag = gene_id)
+
 lrt_all<-lrt_all |>
     left_join(distinct(tx_to_gene, locus_tag, rowLabel), by = "locus_tag") 
 
@@ -738,7 +750,8 @@ lrt_all <- lrt_all |>
 
 lrt_all <- lrt_all |> 
   mutate(DIR = ifelse(logFC >0, "UP", ifelse(logFC < 0, "DOWN", NA)))
-
+#lrt_all<-lrt_all |> filter(contrast %in% conts_of_interest)
+#lrt_all<-na.omit(lrt_all)
 write_tsv(lrt_all, paste0(res_path, "tables/edgeR_LRT_DiffExpr_AllContrasts_p0.05.tsv"))
 }else{
 lrt_all<-read_tsv(paste0(res_path, "tables/edgeR_LRT_DiffExpr_AllContrasts_p0.05.tsv"))  
@@ -750,9 +763,6 @@ lrt_all |>
   gt()
 
 ```
-
-
-
 
 
 # Contrasts of Interest
@@ -783,8 +793,9 @@ subsetCL<-subsetCL[vecKeep]
 
 saveRDS(subsetCL, file = paste0(res_path, "edgeR_ContsOfInterest", ext, ".rds"))
 }else{
-subsetCL<-readRDS(paste0(res_path, "edgeR_ContsOfInterest", ext, ".rds"))
+subsetCL<-readRDS(file = paste0(res_path, "edgeR_ContsOfInterest", ext, ".rds"))
 }
+
 #--- 
 
 padj<-0.05

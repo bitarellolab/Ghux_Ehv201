@@ -1,5 +1,5 @@
 ---
-title: "Annotations"
+title: "Annotations (G. hux)"
 date: '`r format(Sys.time(), "%d %B, %Y")`'
 output:
   html_document:
@@ -25,8 +25,6 @@ options(max.print = .Machine$integer.max, scipen = 999, stringsAsFactors = F, dp
 
 # paths
 (base.path <- path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
-(base.path2 <- path.expand("~/Documents/Ehux-for-pub/salmonQ-v1.11.4/"))
-#setwd(path.expand("~/projects/Ehux_Ehv201/")) #rosalind
 setwd(path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
 
 ```
@@ -46,11 +44,8 @@ conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(base::remove)
 
-#base path
+#load functions
 source("dge/Functions.R")
-#(base.path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
-#setwd("~/Documents/GitHub/rna-seq-host-virus/")
-#(base.path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"))
 
 ```
 

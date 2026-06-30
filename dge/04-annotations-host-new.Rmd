@@ -190,8 +190,6 @@ apply(annot_host, 2, function(x)
 ```{r uniprot}
 
 # Uniprot
-#https://www.uniprot.org/uniprotkb?query=%28taxonomy_id%3A280463%29
-#https://www.uniprot.org/uniprotkb?query=%28taxonomy_id%3A2903%29
 uniprot_host <-
    paste0(base.path, "data/Annotations-host/uniprotkb_taxonomy_id_2903_2026_06_23.tsv.gz") |>
     read_tsv(col_names = T, col_types = cols())

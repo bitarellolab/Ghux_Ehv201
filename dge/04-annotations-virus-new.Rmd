@@ -16,10 +16,6 @@ knitr::opts_knit$set(
   fig.showtext = TRUE,
   tidy = TRUE,
   collapse = TRUE)
-#base path
-(base.path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
-(base.path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"))
-setwd(path.expand(getwd()))
 
 # Setting up environment ===================================================
 # Clean environment
@@ -27,6 +23,10 @@ rm(list = ls(all.names = TRUE)) # will clear all objects including hidden object
 gc() # free up memory and report the memory usage
 options(max.print = .Machine$integer.max, scipen = 999, stringsAsFactors = F, dplyr.summarise.inform = F) # avoid truncated output in R console and scientific notation
 
+# paths
+(base.path <- path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
+setwd(path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
+(base.path2 <- path.expand("~/Documents/Ehux-for-pub/salmonI-v1.10.3"))
 ```
 # Packages and other setup
 
@@ -37,16 +37,16 @@ library(tidyverse)
 library(biomaRt)
 library(data.table)
 library(conflicted)
+library(xlsx)
 })
 conflicts_prefer(tidyr::unite)
 conflicts_prefer(dplyr::filter)
-#base path
-source("dge/scripts/Functions.R")
-(base.path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
-setwd("~/Documents/GitHub/rna-seq-host-virus/")
-(base.path2 <- path.expand("~/Documents/rosalind-rna-seq-mirror/salmonq_all/j_decoy7/"))
 conflicts_prefer(dplyr::select)
-library(xlsx)
+conflicts_prefer(base::remove)
+
+# load functions
+source("dge/Functions.R")
+
 ```
 
 # Virus
@@ -62,38 +62,79 @@ gff_virus <-
   "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/010/974/645/GCA_010974645.1_ASM1097464v1/GCA_010974645.1_ASM1097464v1_genomic.gff.gz" |>
   read_tsv(comment = "#", col_names = F, col_types = cols()) 
 
-
+#https://rest.uniprot.org/unisave/G9E3K8?format=txt&versions=40 #e.g. for the first row
 uniprot_virus <-
   paste0(base.path, "data/Annotations-virus/", "uniprotkb_taxonomy_id_181210_EPVG_2025_06_04.tsv.gz") |>
   read_tsv(comment = "#", col_names = T, col_types = cols())
 uniprot_virus<-NAColOmit(uniprot_virus)
+#which columns can we get rid of?
 which(apply(uniprot_virus, 2, function(x) length(unique(x))==1))
 uniprot_virus<-
   uniprot_virus |>
-  dplyr::select(-c("Organism", "Reviewed", "Proteomes", "Gene Names (ORF)"))
+  dplyr::select(-c("Organism", "Reviewed", "Proteomes", "Annotation"))
 #Note Proteomes column: "UP000502220: Genome"
 #Note Organism column: "Emiliania huxleyi virus 201"
 #Note reviewed column: "unreviewed"
-                                                                                
-colnames(uniprot_virus)<-gsub("Gene Ontology ", "GO_", colnames(uniprot_virus))
+#Note Annotation column: 429 (==1), 2 (==18)
+                                                                        
+#Check which columns have at least one row with != NA
+apply(uniprot_virus, 2, function(x) sum(is.na(x))!=nrow(uniprot_virus))
 
-#colnames(uniprot_virus)<-gsub("Protein names", "description", colnames(uniprot_virus))
+# fix gene ontology columns
+colnames(uniprot_virus) <- gsub("Gene Ontology \\(GO\\)", "GO_GO", colnames(uniprot_virus))
 
-colnames(uniprot_virus)<-gsub("Gene Names", "locus_tag", colnames(uniprot_virus))
-colnames(uniprot_virus)<-gsub("GO_\\(biological process\\)", "GO_BP", colnames(uniprot_virus))
-colnames(uniprot_virus)<-gsub("GO_\\(cellular component\\)", "GO_CC", colnames(uniprot_virus))
-colnames(uniprot_virus)<-gsub("GO_\\(molecular function\\)", "GO_MF", colnames(uniprot_virus))
-uniprot_virus<-uniprot_virus |> dplyr::select(locus_tag, Uniprot_accession = Entry, Uniprot_entry_name = `Entry Name`, UniprotProteinName = `Protein names`, Protein_Length = Length, contains("GO"),everything())
-uniprot_virus<-uniprot_virus |> dplyr::rename(GO_Names = `GO_(GO)`)
-uniprot_virus |> group_by(UniprotProteinName == "Uncharacterized protein") |> tally()
-#FALSE 176
-cols<-colnames(uniprot_virus)[which(grepl("GO_", colnames(uniprot_virus)))]
-uniprot_virus<-isGOannot(x = uniprot_virus, cols = cols)
+colnames(uniprot_virus) <- gsub("Gene Ontology \\(biological process\\)", "GO_BP", colnames(uniprot_virus))
+
+colnames(uniprot_virus) <- sub("Gene Ontology \\(cellular component\\)", "GO_CC", colnames(uniprot_virus))
+
+colnames(uniprot_virus) <- gsub("Gene Ontology \\(molecular function\\)", "GO_MF", colnames(uniprot_virus))
+
+colnames(uniprot_virus) <- gsub("Gene Ontology IDs", "GO_IDs", colnames(uniprot_virus))
+
+
+which(apply(uniprot_virus, 2, function(x) length(unique(x))==1))
+which(apply(uniprot_virus, 2, function(x) length(unique(x))==2))
+
+uniprot_virus |> group_by(`DNA binding`) |> tally()
+
+uniprot_virus<-uniprot_virus |> dplyr::select(locus_tag = `Gene Names (ORF)`, Uniprot = Entry, Uniprot_name = `Entry Name`, contains("GO"), description = `Protein names`, Length,everything())
+#uniprot_virus<-uniprot_virus |> dplyr::rename(GO_Names = `GO_(GO)`)
+#NAColOmit(test)
+uniprot_virus |> group_by(description == "Uncharacterized protein") |> tally()
+#1 FALSE                                        176
+#2 TRUE                                         271
+#test<-protti::fetch_uniprot(uniprot_ids = uniprot_virus$Uniprot) 
+#cols<-colnames(uniprot_virus)[which(grepl("GO_", colnames(uniprot_virus)))]
+uniprot_virus<-isGOannot(x = uniprot_virus)
 uniprot_virus<-uniprot_virus |> arrange(locus_tag)
-write_tsv(uniprot_virus, paste0(base.path, "data/Annotations-virus/uniprot_virus.tsv"))
+#add uniparc id
+uniparc<-read_tsv("data/Annotations-virus/idmapping_2026_06_29.tsv.gz") |>
+  select(Uniprot = From, UniParc = Entry, Length, `Last seen`)
+uniprot_virus2<-left_join(uniprot_virus, uniparc)
+
+write_tsv(uniprot_virus2, paste0(base.path, "data/Annotations-virus/uniprot-virus-latest.tsv")) #good until here
+
+```
+
+# Add transcriptome info
+
+```{r transcriptome}
+salmon_files <- readRDS(paste0(base.path, "data/salmon_files_76samp.rds"))
+salmon_df <-
+  salmon_files |>
+  map_df(read_tsv, .id = "sample_name", col_types = cols())
+keep_these <- unique(salmon_df$Name)
+remove(salmon_df,salmon_files)
+length(keep_these) # 37781
+# Keep viral genes only
+table(grepl("^JF", keep_these))
+keep_these_vir <- keep_these[grepl("^JF", keep_these)]
+remove(keep_these)
+gc()
+
 #gentrome.fa.gz: This is the transcriptome file I used for salmon, containing host (cDNA+ncRNA) + virus (cDNA)
 fasta_headers_v <-
-  paste0(base.path2, "/gentrome.fa.gz") |> 
+  paste0(base.path2, "/gentrome5.fa.gz") |> 
   readLines() |>  
   str_subset("^>JF") |> #all virus genes in the file start with JF
   str_remove("^>")  # Remove leading ">"
@@ -103,30 +144,31 @@ fasta_headers_v <-
 # Create annotation directly from FASTA
 annot_virus <- tibble(
    #Extract transcript ID (first field before space)
-  transcript_id = str_extract(fasta_headers_v,"^[^ ]+"),
+  tx_id = str_extract(fasta_headers_v,"^[^ ]+"),
   locus_tag = str_extract(fasta_headers_v, "(?<=locus_tag=)[^\\]]+"),  
   protein_id = str_extract(fasta_headers_v, "(?<=protein_id=)[^\\]]+")# 
   #biotype = "viral_gene"
 ) |> 
   dplyr::mutate(
-    scaffold = str_extract(transcript_id, "^[^_]+"),  # JF974311.1
+    scaffold = str_extract(tx_id, "^[^_]+"),  # JF974311.1
     source = "Genbank",
-    accession = str_extract(transcript_id, "(?<=cds_)[^_]+")
+    accession = str_extract(tx_id, "(?<=cds_)[^_]+")
   ) |> 
 
-  dplyr::select(locus_tag, tx_id = transcript_id, protein_id, source, scaffold, accession) |> 
+  dplyr::select(locus_tag, tx_id, protein_id, source, scaffold, accession) |> 
   mutate(origin = "virus")
 annot_virus #447 rows
 apply(annot_virus, 2, function(x) length(unique(x)))
 annot_virus<-annot_virus |> dplyr::select(-c("scaffold"))
-saveRDS(annot_virus, paste0(base.path, "data/Annotations-virus/annot_virus.rds"))
-# ncbi
-source("dge/scripts/Functions.R")
+annot_virus<-annot_virus |> select(-accession)
+saveRDS(annot_virus, paste0(base.path, "data/Annotations-virus/annot-virus-latest.rds"))
 
+# ncbi
+#https://www.ncbi.nlm.nih.gov/datasets/gene/GCA_010974645.1/?gene_type=protein-coding
 ncbi_virus<-paste0(base.path, "data/Annotations-virus/ncbi_dataset_virus.tsv") |> read_tsv()
 ncbi_virus<-NAColOmit(ncbi_virus)
 ncbi_virus |> dplyr::filter(Name != `Protein name`) # zero rows
-ncbi_virus<-ncbi_virus |> dplyr::select(locus_tag = `Locus tag`, protein_id = `Protein accession`, biotype = `Gene Type`, protein_name = `Protein name`, protein_length = `Protein length`, everything())
+ncbi_virus<-ncbi_virus |> dplyr::select(locus_tag = `Locus tag`, protein_id = `Protein accession`, biotype = `Gene Type`, protein_name = `Protein name`, protein_length = `Protein length`, everything()) |> arrange(locus_tag)
 
 ncbi_virus<-ncbi_virus |> dplyr::filter(locus_tag %in% annot_virus$locus_tag)
 apply(ncbi_virus, 2, function(x) length(unique(x)))
@@ -134,24 +176,24 @@ apply(ncbi_virus, 2, function(x) sum(is.na(x)))
 
   
 table(ncbi_virus$locus_tag %in% annot_virus$locus_tag)
-write_tsv(ncbi_virus, paste0(base.path, "data/Annotations-virus/ncbi_virus_alt.tsv"))
+write_tsv(ncbi_virus, paste0(base.path, "data/Annotations-virus/ncbi-virus-latest.tsv"))
 #combine
 annot_virus2<-left_join(annot_virus, ncbi_virus, by = c("locus_tag", "protein_id"))
 annot_virus2 |> dplyr::filter(protein_name != Name)
 annot_virus2<-annot_virus2 |> dplyr::select(-Name)
 #annot_virus2 |> dplyr::filter(description2 != description3)
 annot_virus2<-annot_virus2 |> dplyr::select(locus_tag:protein_id, protein_length, protein_name, everything())
-saveRDS(annot_virus2, paste0(base.path, "data/Annotations-virus/annot_virus2.rds"))
+saveRDS(annot_virus2, paste0(base.path, "data/Annotations-virus/annot-virus-2-latest.rds"))
 
-annot_virus3<-left_join(annot_virus2, uniprot_virus, by = 'locus_tag') 
+annot_virus3<-left_join(annot_virus2, uniprot_virus2, by = 'locus_tag') 
 
 #annot_virus3 |> dplyr::filter(Length != Length2)
 
 apply(annot_virus3, 2, function(x) sum(is.na(x)))
 annot_virus3<-annot_virus3 |> dplyr::select(names(sort(apply(annot_virus3, 2, function(x) sum(is.na(x))))))
-annot_virus3<-annot_virus3 |> mutate(PreferredName = UniprotProteinName, .after = protein_name)
+annot_virus3<-annot_virus3 |> mutate(PreferredName = description, .after = protein_name)
 cols<-colnames(annot_virus3)[which(grepl("GO_", colnames(annot_virus3)))]
-annot_virus3<-isGOannot(annot_virus3, cols = cols)
+annot_virus3<-isGOannot(annot_virus3)
 annot_virus3<-annot_virus3 |> dplyr::select(locus_tag: PreferredName, GOAnnotAvail, everything())
 annot_virus3 |> group_by(GOAnnotAvail) |> tally()
 #  GOAnnotAvail     n
@@ -159,13 +201,15 @@ annot_virus3 |> group_by(GOAnnotAvail) |> tally()
 #1 FALSE          228
 #2 TRUE           219
 
-saveRDS(annot_virus3, paste0(base.path, "data/Annotations-virus/annot_virus3.rds"))
-write_tsv(annot_virus3, file = paste0(base.path, "data/Annotations-virus/annot_virus_ext.tsv"))
-#-----Get GOs ----
-proteome<-protti::fetch_uniprot_proteome("181210", reviewed = F,
-                                                               max_tries = 10,
-                                                               timeout = 220)
+saveRDS(annot_virus3, paste0(base.path, "data/Annotations-virus/annot-virus-3-latest.rds"))
+write_tsv(annot_virus3, file = paste0(base.path, "data/Annotations-virus/annot-virus-ext-latest.tsv"))
 
+#add uniref
+UniRef100_Q4A3B7
+#-----Get GOs ----
+#using EhV201 no longer works: June 2026
+#trying with EhV86 (ref proteome)
+proteome<-protti::fetch_uniprot_proteome(654925,reviewed = F,max_tries = 100)
 
 fetchIDs <- protti::fetch_uniprot(uniprot_ids = proteome$accession,
   columns = c(
@@ -204,39 +248,52 @@ fetchIDs <- fetchIDs |> dplyr::rename(Uniprot_accession = accession)
 fetchIDs <- fetchIDs |> dplyr::rename(locus_tag = gene_names)
 fetchIDs <- fetchIDs |> dplyr::rename(Uniprot_entry_name = id)
 fetchIDs<-fetchIDs |> dplyr::select(locus_tag, UniprotProteinName = protein_name, Uniprot_accession, Uniprot_entry_name, contains("go_"), everything())
-saveRDS(fetchIDs, file = paste0(base.path, "data/Annotations-virus/prottifetchIDSUniprot_virus.rds"))
+saveRDS(fetchIDs, file = paste0(base.path, "data/Annotations-virus/EhV-86-uniprot.rds"))
+
 cols = colnames(fetchIDs |> dplyr::select(contains("go_")))
-fetchIDs <- isGOannot(fetchIDs, cols = cols) |> 
-  dplyr::select(-accession_2)
-fetchIDs <- fetchIDs |> dplyr::select(Uniprot_accession:gene_synonym,
+fetchIDs <- isGOannot(fetchIDs, cols = cols) 
+fetchIDs <- fetchIDs |> dplyr::select(Uniprot_accession,
                             GOAnnotAvail,
                             everything())
 fetchIDs |> group_by(GOAnnotAvail) |> tally()
-#1 FALSE          228
-#2 TRUE           222
-fetchIDs |> dplyr::filter(locus_tag %in% annot_virus3$locus_tag)
-fetchIDs<-fetchIDs |> dplyr::filter(locus_tag %in% annot_virus3$locus_tag)
-fetchIDs |> group_by(GOAnnotAvail) |> tally()
+#1 FALSE          388
+#2 TRUE           84
+#fetchIDs |> dplyr::filter(locus_tag %in% annot_virus3$locus_tag)
+#fetchIDs<-fetchIDs |> dplyr::filter(locus_tag %in% annot_virus3$locus_tag)
+#fetchIDs |> group_by(GOAnnotAvail) |> tally()
 #1 FALSE          228
 #2 TRUE           219
 fetchIDs<-fetchIDs |> arrange(locus_tag)
 
 
-saveRDS(fetchIDs, file = paste0(base.path, "data/Annotations-virus/prottifetchIDSUniprot_virus.rds"))
-uniprot_virus2<-left_join(fetchIDs, uniprot_virus)
-uniprot_virus2 |> dplyr::filter(Protein_Length != length)
-uniprot_virus2<-uniprot_virus2 |> dplyr::select(-length)
-uniprot_virus2<-uniprot_virus2 |> dplyr::select(locus_tag:go, GO_BP:GO_IDs, GOAnnotAvail, xref_embl, everything())
-saveRDS(uniprot_virus2, file = paste0(base.path, "data/Annotations-virus/uniprot_virus2.rds"))
-write_tsv(uniprot_virus2, paste0(base.path, "data/Annotations-virus/uniprot_virus2.tsv"))
-annot_virus4<-left_join(annot_virus3,uniprot_virus2) 
-annot_virus4<-annot_virus4 |> dplyr::select(locus_tag:PreferredName, Uniprot_accession, GO_BP:GO_IDs,go_id:go, GOAnnotAvail, xref_embl, everything())
-cols<-colnames(annot_virus4)[which(grepl("go", colnames(annot_virus4),ignore.case = T))]
-cols<-cols[-match("GOAnnotAvail", cols)]
-annot_virus4<-isGOannot(annot_virus4 |> dplyr::select(-GOAnnotAvail), cols)
-annot_virus4 |> group_by(GOAnnotAvail) |> tally()
-saveRDS(annot_virus4, file = paste0(base.path, "data/Annotations-virus/annot_virus4.rds"))
-write_tsv(annot_virus4 |> dplyr::select(tx_id, locus_tag,protein_id:PreferredName, Uniprot_accession, GO_BP:GO_IDs,go_id:go, GOAnnotAvail, xref_embl, everything()), file = paste0(base.path, "data/Annotations-virus/annot-virus-ext.tsv"))
+saveRDS(fetchIDs, file = paste0(base.path, "data/Annotations-virus/EhV-86-uniprot.rds"))
+#all good up to here.
+##########################
+sessionInfo()
+ sessionInfo() %>%
+   capture.output() %>%
+   writeLines(paste0("logs/annotation-virus.txt"))
+
+##########################
+```
+
+# Obsolete
+```{r obsolete, eval=F, include = F}
+#obsolete ----
+#uniprot_virus2<-left_join(fetchIDs, uniprot_virus)
+#uniprot_virus2 |> dplyr::filter(Protein_Length != length)
+#uniprot_virus2<-uniprot_virus2 |> dplyr::select(-length)
+#uniprot_virus2<-uniprot_virus2 |> dplyr::select(locus_tag:go, GO_BP:GO_IDs, GOAnnotAvail, xref_embl, everything())
+#saveRDS(uniprot_virus2, file = paste0(base.path, "data/Annotations-virus/uniprot_virus2.rds"))
+#write_tsv(uniprot_virus2, paste0(base.path, "data/Annotations-virus/uniprot_virus2.tsv"))
+#annot_virus4<-left_join(annot_virus3,uniprot_virus2) 
+#annot_virus4<-annot_virus4 |> dplyr::select(locus_tag:PreferredName, Uniprot_accession, GO_BP:GO_IDs,go_id:go, GOAnnotAvail, xref_embl, everything())
+#cols<-colnames(annot_virus4)[which(grepl("go", colnames(annot_virus4),ignore.case = T))]
+#cols<-cols[-match("GOAnnotAvail", cols)]
+#annot_virus4<-isGOannot(annot_virus4 |> dplyr::select(-GOAnnotAvail), cols)
+#annot_virus4 |> group_by(GOAnnotAvail) |> tally()
+#saveRDS(annot_virus4, file = paste0(base.path, "data/Annotations-virus/annot_virus4.rds"))
+#write_tsv(annot_virus4 |> dplyr::select(tx_id, locus_tag,protein_id:PreferredName, Uniprot_accession, GO_BP:GO_IDs,go_id:go, GOAnnotAvail, xref_embl, everything()), file = paste0(base.path, "data/Annotations-virus/annot-virus-ext.tsv"))
 #as.data.frame(str_extract(annot_virus$transcript_id, "(?<=cds_)[^_]+")) |> fwrite("~/Downloads/Ehv201_accessions.txt")
 
 # all_lines<-read_lines(file = "~/Downloads/protein_result.txt",skip=0,progress = T)
@@ -245,13 +302,13 @@ write_tsv(annot_virus4 |> dplyr::select(tx_id, locus_tag,protein_id:PreferredNam
 #Extra:
 #You can import the cDNA and ncRNA fasta files and verify that the annotation above includes all sequences in these fasta files:
 
-c_dna_v <-Biostrings::readDNAStringSet("https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/010/974/645/GCA_010974645.1_ASM1097464v1/GCA_010974645.1_ASM1097464v1_cds_from_genomic.fna.gz") |>
-  names() |>
-  str_extract("^\\S+") |>
-  str_extract("(?<=lcl\\|)[^$]+")
+#c_dna_v <-Biostrings::readDNAStringSet("https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/010/974/645/GCA_010974645.1_ASM1097464v1/GCA_010974645.1_ASM1097464v1_cds_from_genomic.fna.gz") |>
+#  names() |>
+#  str_extract("^\\S+") |>
+#  str_extract("(?<=lcl\\|)[^$]+")
 
 
-saveRDS(c_dna_v, file = paste0(base.path, "data/Annotations-virus/cdna_virus.rds"))
+#saveRDS(c_dna_v, file = paste0(base.path, "data/Annotations-virus/cdna_virus.rds"))
 
 
 # annot_virus <- annot_virus |> 
@@ -275,12 +332,9 @@ annot_virus_extended<-annot_virus_extended |>
 
 write_tsv(annot_virus_extended, file = paste0(base.path, "data/annot_virus_ext.tsv"))
 }
-```
 
 
 # Combine annotations
-
-```{r, annot-combined, echo = T}
 
 
 #identical(annot_host_final, annot_host_extended)
@@ -293,9 +347,9 @@ write_tsv(annot_combined, file = paste0(base.path, "data/annot_combined.tsv"))
 
 ##########################
 sessionInfo()
-# sessionInfo() %>%
-#   capture.output() %>%
-#   writeLines(paste0("logs/annotation.txt"))
+ sessionInfo() %>%
+   capture.output() %>%
+   writeLines(paste0("logs/annotation-virus.txt"))
 
 ##########################
 ```
