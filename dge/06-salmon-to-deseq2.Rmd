@@ -193,12 +193,30 @@ salmon_df <-
   salmon_files |>
   map_df(read_tsv, .id = "sample_name", col_types = cols())
 
+#for SOM
+if(sampSet=="79samp"){
+  salmon_df |> write_tsv(paste0(base_path, "salmon-output-79samples.tsv"))
+  
+}
 # Read in annotation data ----
 
 if(subs=='host'){
-  annot<-readRDS(file = paste0("data/Annotations-", subs, "/annot-", subs, "-edgeR.rds"))
-#annot<-isGOannot(annot)
-#saveRDS(annot, paste0(base_path, "data/annot", "_", subs, "_edgeR.rds"))
+ annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
+annot<-annot |> distinct()
+
+#check if empty
+(dup_annot <- annot |> 
+    group_by(locus_tag) |> 
+    tally() |> 
+    filter(n>1) |> 
+    pull(locus_tag))
+#check if empty
+(dup_annot2 <- annot |> 
+    group_by(rowLabel) |> 
+    tally() |> 
+    filter(n>1) |> 
+    pull(rowLabel))
+
 }else{
   annot<-readRDS(paste0("data/Annotations-", subs, "/annot_", subs, "4.rds"))
   annot<-annot |> mutate(rowLabel = accession, .after = locus_tag)
@@ -213,7 +231,7 @@ if(subs=='host'){
 ## Make table for tximport: transcript to Gene map
 if(subs == 'host'){
 tx_to_gene <- annot |> 
-  dplyr::select(tx_id, locus_tag, rowLabel, tx_name, GeneName, Symbol, NrTranscripts, everything())
+  dplyr::select(tx_id, locus_tag, rowLabel, tx_name, NrTranscripts,everything())
 remove(annot)
 gc()
 }else{
@@ -263,7 +281,7 @@ dim(rcounts)
 cat("Genes with zero reads across all samples:", "\n")
 table(rowSums(rcounts)==0)
 table(colMeans(rcounts)<10)
-#quick look at this
+#quick look at this---(optional)
 var(rowSums(rcounts[rowSums(rcounts)!=0,]))/mean(rcounts[rowSums(rcounts)!=0,]) 
 
 mean_counts <- apply(rcounts[rowSums(rcounts)!=0,], 1, mean)
@@ -271,6 +289,7 @@ var_counts <- apply(rcounts[rowSums(rcounts)!=0,], 1, var)
 df <- data.frame(mean_counts, var_counts) |> 
   mutate(Disp = var_counts/mean_counts)
 summary(df)
+#---
 
 #pcts_raw<-ggplot(df, aes(x=log2(mean_counts+1),y=log2(var_counts))) + 
 pcts_raw<-ggplot(df, aes(x=mean_counts,y=var_counts)) + 
@@ -282,11 +301,11 @@ ggsave(paste0(res_path, "figs/VarByMeanCounts", ext, ".pdf"), device = cairo_pdf
 
 ## Custom filtering
 ## http://127.0.0.1:14873/library/rnaseqGene/doc/rnaseqGene.html#pre-filtering-the-dataset
-keep3<-readRDS(paste0(res_path, "edgeR_keep", ext, ".rds"))
-sum(keep3)
-genes_keep_final<-rownames(txi$counts)[keep3]
+keep<-readRDS(paste0(res_path, "edgeR_keep", ext, ".rds"))
+sum(keep)
+genes_keep_final<-rownames(txi$counts)[keep]
 rcounts<-rcounts[genes_keep_final,]
-ddsTxi <-ddsTxi[keep3,]
+ddsTxi <-ddsTxi[keep,]
 #}
 ## record decision
 saveRDS(genes_keep_final, file = paste0(res_path, "genes_keep_final", ext, ".rds"))
@@ -294,7 +313,7 @@ saveRDS(ddsTxi, paste0(res_path, "deseq_glm_ddsTxi", ext, ".rds"))
 }else{
 ## Subset original ddsTxi object
 genes_keep_final<-readRDS(paste0(res_path, "genes_keep_final", ext, ".rds"))
-ddsTxi<-readRDS( paste0(res_path, "deseq_glm_ddsTxi", ext, ".rds"))
+ddsTxi<-readRDS(paste0(res_path, "deseq_glm_ddsTxi", ext, ".rds"))
 }
 
 #remove(genes_keep)
@@ -359,40 +378,6 @@ if(subs == "host"){
 gc()
 ```
 
-```{r more-filt, include=F, eval=F, echo=F}
-#
-#further filtering?
-(SmallestGroupSize<-unname(sort(table(coldata$condition))[1])+1)
-cat("Select only genes with at least 10 reads in at least ", SmallestGroupSize, " samples", "\n")
-keep <-rowSums(rcounts >= 10) ## Number of samples with at least 10 reads
-## hist(table(keep))
-table(keep>=SmallestGroupSize) 
-## #soft filter
-keep2 <- keep >= SmallestGroupSize ## Select only those genes for which there are at least X samples that pass the criterion
-table(keep2)
-var(rowSums(rcounts[keep2,]))/mean(rowSums(rcounts[keep2,])) 
-
-#subset further?
-genes_keep<-genes_keep[keep2]
-
-table(rownames(txi$counts)[!keep2] %in% rownames(txi$counts)[!keep3])
-table(rownames(txi$counts)[!keep3] %in% rownames(txi$counts)[!keep2])
-#genes_keep<-readRDS(paste0(res_path, "genes_keep", ext, ".rds"))
-#table(keep2)
-table(keep3)
-#length(genes_keep)
-#all_filts<-list(manual=keep2, edgeR=keep3, convT = genes_keep)
-#all_filts<-list(manual=keep2, edgeR=keep3)
-## pick most strict
-#(decide_filt<-names(which.min(unlist(lapply(all_filts, length)))))
-#if(decide_filt == "convT"){
-#  ddsTxi<-ddsTxi[genes_keep,]
-#}else if(decide_filt == "manual"){
-#if(decide_filt == "manual"){
-#  ddsTxi<- ddsTxi[keep2, ]
-#}else if(decide_filt == "edgeR"){
-  
-```
 
 # Fit and Dispersions 
 
@@ -400,6 +385,7 @@ table(keep3)
 ## Decide which fit to use for deseq(): local vs parammetric
 ## https://support.bioconductor.org/p/81094/
 ## Decide about size factors method: poscounts vs ratio
+
 if(TRUE){#run once
 
 ## See deseq2 documentation.
