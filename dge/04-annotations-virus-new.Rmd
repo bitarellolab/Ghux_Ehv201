@@ -275,6 +275,10 @@ sessionInfo()
    writeLines(paste0("logs/annotation-virus.txt"))
 
 ##########################
+ 
+#try later:
+#read_tsv("data/Annotations-virus/uniparc_upi_UPI0000585858_OR_upi_UPI00_2026_06_25.tsv.gz") |> select(Entry, UniProtKB, `Gene names`)
+#merge with other ones via Uniparc column.
 ```
 
 # Obsolete

@@ -59,7 +59,7 @@ subs <- "virus"; sampSet <- "39samp" #
 #subs <- "host";  sampSet <- "76samp" #
 #subs <- "host";  sampSet <- "79samp" #
 res_path <- paste0(base_path, subs, "/", sampSet, "/")
-(ext <- paste0("_", sampSet,"_", subs))
+(ext <- paste0("_", sampSet,"_", subs, "-", lubridate::today()))
 
 
 if(subs == 'virus'){
@@ -106,8 +106,11 @@ Sys.setenv(VROOM_CONNECTION_SIZE = 500000L)
 if(TRUE){ #updated with new host annot 07/21/25
 if(subs == 'virus'){
 #just virus
-annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot_", subs, "4.rds"))
-  annot<-annot |> mutate(rowLabel = accession, .after = locus_tag)
+annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-virus-2-latest.rds"))
+annot |> group_by(tx_id) |> tally() |> filter(n>1)
+annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
+saveRDS(annot, paste0(base_path2, "data/Annotations-virus/annot-virus-edgeR.rds"))
+#annot<-annot |> mutate(rowLabel = accession, .after = locus_tag)
 }else if(subs == "host"){
 annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
 annot<-annot |> distinct()
