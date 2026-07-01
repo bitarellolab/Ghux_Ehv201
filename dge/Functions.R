@@ -231,7 +231,7 @@ isGOannot <- function(x = x,
 # Find Top Degs and plot Volcano ----
 VolcanoFunc <- function(cont = NULL,
                         padj = 0.05,
-                        lfc = 1) {
+                        lfc = 2) {
   cat("contrast: ", cont, "\n")
   df <- glm_subset[[cont]] |>
     filter(contrast == cont) |>
@@ -288,23 +288,6 @@ VolcanoFunc <- function(cont = NULL,
   print(p1)
   ggsave(paste0(res_path, "figs/volcano_", cont, ext, ".pdf"), device =
            cairo_pdf)
-  #remove(df,p1)
-  #for(p in df$locus_tag){
-  # p0<-plotCounts(dds, gene = p, intgroup = "condition", returnData = T) |>
-  #  filter(grepl("t4", condition)==T) |>
-  # ggplot(aes(x = condition, y = count, fill = condition)) +
-  #geom_violin(alpha = 0.6) +
-  #geom_jitter(width = 0.1,height = 0.01) +
-  #geom_jitter()+
-  #scale_color_manual(values = trt_vir_cols) + ylab("Normalized count") +
-  #bb_theme() +
-  #theme(legend.position = 'none')
-  #print(p0)
-  #ggsave(paste0(res_path, "figs/NormCounts", cont, "_", p, ext, ".pdf"), device =cairo_pdf, width =12)
-  #remove(p0)
-  #Sys.sleep(2)
-  #gc()
-  #}
   
 }
 

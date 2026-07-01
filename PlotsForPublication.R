@@ -7,8 +7,7 @@ conflicts_prefer(dplyr::filter)
 #systemfonts::fonts_as_import(family = "Roboto Condensed")
 #systemfonts::match_font("Roboto Condensed")
 #base_path <- "~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/BitaLab_not_shared/Research/rna-seq-host-virus/data_and_res_gh_repo/"
-base_path<-"~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"
-
+base_path<-"~/Documents/GitHub/Ehux_Ehv201/scratch/"
 
 
 # Template ----
