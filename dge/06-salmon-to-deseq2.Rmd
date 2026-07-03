@@ -54,8 +54,8 @@ setwd(base_path)
 #subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
-subs <- "host";  sampSet <- "76samp" #
-#subs <- "host";  sampSet <- "79samp" #
+#subs <- "host";  sampSet <- "76samp" #
+subs <- "host";  sampSet <- "79samp" #
 
 res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
 (ext <- paste0("_", sampSet,"_", subs))
@@ -241,7 +241,7 @@ tx_to_gene <- annot |>
   dplyr::select(tx_id, locus_tag, rowLabel, everything())
 }
 #DMSO_cntl_t1_2 EOD08264    573         421.011  3.57990   46.008
-if(FALSE){#Run once for each sampSet#--------------------
+if(TRUE){#Run once for each sampSet#--------------------
 salmon_gene_quants <-
   salmon_df |>
     dplyr::filter(Name %in% tx_to_gene$tx_id) |>
@@ -379,7 +379,7 @@ gc()
 ## Decide which fit to use for deseq(): local vs parammetric
 ## https://support.bioconductor.org/p/81094/
 ## Decide about size factors method: poscounts vs ratio
-if(FALSE){#run once
+if(TRUE){#run once
 ## See deseq2 documentation.
 ## fits<-c('local', 'parametric', 'mean', 'glmGamPoi')
 fits<-c('local', 'parametric')
