@@ -3,6 +3,7 @@
 library(tidyverse)
 (base_path <- path.expand("~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
 
+
 # 
 # 1. HHQ_inf vs. DMSO_inf, T1 (genes can be taken from "deseq_DEGSets_T1_76samp_host", Set A)
 # 2. HHQ_inf vs. DMSO_inf, T2 (genes can be taken from "deseq_DEGSets_T2_76samp_host", Set A)

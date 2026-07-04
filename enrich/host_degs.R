@@ -3,8 +3,8 @@ library(ggVennDiagram)
 library(openxlsx)
 library(ggbeeswarm)
 library(data.table)
-source("~/Documents/GitHub/rna-seq-host-virus/dge/scripts/Functions.R")
-source("~/Documents/GitHub/rna-seq-host-virus/dge/scripts/plot_funcs.R")
+source("dge/Functions.R")
+source("dge/plot_funcs.R")
 conflicts_prefer(dplyr::filter)
 
 #https://guangchuangyu.github.io/2015/05/use-clusterprofiler-as-an-universal-enrichment-analysis-tool/

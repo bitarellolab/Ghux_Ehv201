@@ -42,7 +42,7 @@ conflicts_prefer(base::remove)
 
 # Setups
 
-```{r, setup2, eval = T, echo = F, include = T, cache = F}
+```{r setup2, eval = T, echo = F, include = T, cache = F}
 ## Adjust these to your actual file paths
 base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/")
 ## Working directory
@@ -51,11 +51,11 @@ setwd(base_path)
 
 ## Options: 
 #subs <- "virus"; sampSet <- "39samp" #
-#subs <- "virus"; sampSet <- "29samp"  # 
+subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
-subs <- "host";  sampSet <- "79samp" #
+#subs <- "host";  sampSet <- "79samp" #
 
 res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
 (ext <- paste0("_", sampSet,"_", subs))
@@ -195,10 +195,10 @@ salmon_df <-
   map_df(read_tsv, .id = "sample_name", col_types = cols())
 
 salmon_df |> 
-  write_tsv(paste0(res_path, "salmon-output-", sampSet, ".tsv"))
-  system(glue::glue("gzip {res_path}salmon-output-{sampSet}.tsv"))
+  write_tsv(paste0(res_path, "tables/salmon-output-", sampSet, ".tsv"))
+  system(glue::glue("gzip {res_path}tables/salmon-output-{sampSet}.tsv"))
 }else{
-salmon_df<-read_tsv(paste0(res_path, "salmon-output-", sampSet, ".tsv.gz"))  
+salmon_df<-read_tsv(paste0(res_path, "tables/salmon-output-", sampSet, ".tsv.gz"))  
 }
 # Read in annotation data ----
 
@@ -251,10 +251,10 @@ salmon_gene_quants <-
     dplyr::summarise(across(c(n_reads, tpm), sum), .groups = "drop") |>
   dplyr::left_join(tx_to_gene) |>
   select(sample_name:tx_name)
-write_tsv(salmon_gene_quants, file=paste0(res_path, "salmon-output-processed", ext, ".tsv"))
-system(glue::glue("gzip {res_path}salmon-output-processed{ext}.tsv"))
+write_tsv(salmon_gene_quants, file=paste0(res_path, "tables/salmon-output-processed", ext, ".tsv"))
+system(glue::glue("gzip {res_path}tables/salmon-output-processed{ext}.tsv"))
 }else{
-  salmon_gene_quants <- data.table::fread(paste0(res_path, "salmon-output-processed", ext, ".tsv.gz")) |> 
+  salmon_gene_quants <- data.table::fread(paste0(res_path, "tables/salmon-output-processed", ext, ".tsv.gz")) |> 
     as_tibble()
 } #--
 
@@ -327,8 +327,8 @@ salmon_gene_quants_filt <-
   ))
 salmon_gene_quants_filt <- left_join(salmon_gene_quants_filt, tib)
 
-write_tsv(salmon_gene_quants, file=paste0(res_path, "salmon-output-processed-filt", ext, ".tsv"))
-system(glue::glue("gzip {res_path}salmon-output-processed-filt{ext}.tsv"))
+write_tsv(salmon_gene_quants, file=paste0(res_path, "tables/salmon-output-processed-filt", ext, ".tsv"))
+system(glue::glue("gzip {res_path}tables/salmon-output-processed-filt{ext}.tsv"))
 
 #salmon_gene_quants_filt <- data.table::fread(paste0(res_path, #"salmon_gene_quants_filt", ext, ".gz")) |> as_tibble()
 
@@ -375,7 +375,7 @@ gc()
 
 # Fit and Dispersions 
 
-```{r, deseq2-disp, echo = T, warnings = FALSE, fig.showtext = T}
+```{r deseq2-disp, echo = T, warnings = FALSE, fig.showtext = T}
 ## Decide which fit to use for deseq(): local vs parammetric
 ## https://support.bioconductor.org/p/81094/
 ## Decide about size factors method: poscounts vs ratio
@@ -487,8 +487,6 @@ gc()
  
 ```{r, var-transf} 
 
-
-
 ## Compare Transformations  ------------------------
 
 
@@ -504,7 +502,7 @@ dds <- dds |> estimateDispersions(fit = ftype)
 nsub <- min(c(sum(rowMeans(counts(dds, normalized=T))>5), 1000))
 
 
-if(FALSE){ #run once to figure this out, then set to false
+if(TRUE){ #run once to figure this out, then set to false
 rld_blind <- DESeq2::rlog(dds, fitType = ftype, blind = T) 
 vsd_blind<-DESeq2::vst(dds, fitType = ftype, blind = T, nsub = nsub)
 rld <- DESeq2::rlog(dds, fitType = ftype, blind = F)
@@ -727,6 +725,7 @@ save_pheatmap_png(vsdB50_heat,paste0(res_path, "figs/deseq_heatmap_", "top_50Var
 vsdNB50_heat<-MyPheatmapClust(mat_vsdNB,
                    main = paste0("Top 50 var genes (vsd)"))
 save_pheatmap_png(vsdNB50_heat,paste0(res_path, "figs/deseq_heatmap_", "top50VarGenesVSD", ext, ".png"), width=1700)
+}
 ```
 
 # PCAs
@@ -986,7 +985,7 @@ glMDSPlot(mat, labels = mylabs, groups = coldata[, c("trt_vir", "timePt")], path
 #to do: figure out why this var explianed is different
 Glimma::glimmaMDS(dds, log = T, prior.count = 2,
                   top = ntop, gene.selection = "common",html = paste0(res_path, "figs/glimmaMDS", ext, ".html"))
-}
+#}
 ###########
 ```
 
@@ -1073,7 +1072,7 @@ identical(counts(dds, normalize = T), counts(dds2, normalize = T))
 # LRT
 
 ```{r, lrt, fig.width = 12, show.test = T}
-if(FALSE){
+if(TRUE){
 if(subs == 'host'){
 ddsTxiLRT <- DESeq2::DESeqDataSetFromTximport(
      txi = txi, colData = coldata, design = ~ batch + timePt + trt_vir + timePt:trt_vir)
@@ -1113,7 +1112,7 @@ ddsLRT<-readRDS(paste0(res_path,"deseq_ddsLRT", ext, ".rds"))
 
 ```{r, all-conts-glm, echo = T}
 ## Make all possible contrasts ----
-#if(TRUE){
+
 gs<-unique(coldata$condition)
 combinations <- combn(seq_len(length(gs)), 2)
 
@@ -1210,7 +1209,7 @@ if(TRUE){ #only run this once
 #  group_by(contrast) |>
 #  dplyr::group_split()
 
-system.time(glm_subset<-mclapply2(1:length(conts), function(i) run_glm(i=i), mc.cores = 2))
+system.time(glm_subset<-lapply(1:length(conts), function(i) run_glm(i=i)))
 names(glm_subset)<-subsetCL
 #   user  system elapsed 
 #133.020  19.042 161.262 
@@ -1268,27 +1267,25 @@ gc()
 test<-lapply(glm_subset, function(x){
  j<-x$contrast[1]
  message("Contrast:", j)
- write_tsv(x, file = paste0(res_path, "tables/deseq-",j, "-all.tsv"))
+ write_tsv(x, file = paste0(res_path, "tables/deseq-",j, "-", sampSet, ".tsv"))
   gc()
+  system(glue::glue("rm {res_path}tables/deseq-{j}-{sampSet}.tsv.gz"))
+  system(glue::glue("gzip {res_path}tables/deseq-{j}-{sampSet}.tsv"))
 })
 
-#other useful files
+#just degs ---
+test2<-lapply(glm_subset, function(x){
+ j<-x$contrast[1]
+ message("Contrast:", j)
+ x |> dplyr::filter(padjIHW <= 0.05) |> dplyr::filter(abs(log2FCshrink_ashr)>=2) |> group_by(DIR) |> arrange(padjIHW, by_group=T) |> write_tsv(file = paste0(res_path, "tables/deseq-DEGs-",j, ext, ".tsv"))
+  gc()
+  system(glue::glue("rm {res_path}tables/deseq-DEGs-{j}{ext}.tsv.gz"))
+  system(glue::glue("gzip {res_path}tables/deseq-DEGs-{j}{ext}.tsv"))
+})
 
-
-```
-
-
-# Top DEGs
-
-```{r, topDegs, fig.width=12,fig.height=10,fig.showtext = T}
-
-## Top degs ----
 
 #custom function
 lapply(subsetCL, function(x) VolcanoFunc(cont = x))
-
-
-
 ## End ---
 sessionInfo()
 
