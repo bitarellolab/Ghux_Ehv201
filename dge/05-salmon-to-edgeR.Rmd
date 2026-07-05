@@ -45,22 +45,20 @@ conflicts_prefer(base::remove)
 
 ```{r, setup2, eval = T, echo = F, include = T}
 ## Adjust these to your actual file paths
-base_path <- "~/Documents/Ehux-for-pub/scratch/"
+base_path <- "~/Documents/Github/Ehux_Ehv201/"
 ## Working directory
-base_path2 <- "~/Documents/Github/Ehux_Ehv201/"
-setwd(base_path2)
+setwd(base_path)
 ## Select subset of genes to look at. 
 
 ## Options (select one and comment out the others):
 #subs <- "virus"; sampSet <- "39samp" #
 #subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
-subs <- "virus"; sampSet <- "10samp" #
-#subs <- "host";  sampSet <- "76samp" #
+#subs <- "virus"; sampSet <- "10samp" #
+subs <- "host";  sampSet <- "76samp" #
 #subs <- "host";  sampSet <- "79samp" #
-res_path <- paste0(base_path, subs, "/", sampSet, "/")
+res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
 (ext <- paste0("_", sampSet,"_", subs))
-(ext2 <- paste0("_", sampSet,"_", subs, "-", lubridate::today()))
 
 
 if(subs == 'virus'){
@@ -89,7 +87,7 @@ if(sampSet == "10samp"){
 #FINAL COLDATA PLEASE CHECK!
 coldata <- read_tsv(paste0("data/coldata_", sampSet, ".txt"),show_col_types = FALSE)
 # check previously mislabelled samples (see FixMetadata.R)
-coldata |> select(files, names) |> mutate(files = gsub("/quant.sf", "", gsub("/Users/bbitarello/Documents/Ehux-for-pub/salmonQ-v1.10.3/", "", files))) |> filter(files!=names)
+coldata |> select(contains("files"), names) |> mutate(files = gsub("/quant.sf", "", gsub("/Users/bbitarello/Documents/Ehux-for-pub/salmonQ-v1.10.3/", "", files))) |> filter(files!=names)
 #should be (or a subset of):
 #HHQ_inf_t4_4     DMSO_cntl_t1_1
 #2 HHQ_inf_t2_2   DMSO_cntl_t3_3
@@ -105,17 +103,18 @@ salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, ".rds"))
 
 Sys.setenv(VROOM_CONNECTION_SIZE = 500000L)
 #if(TRUE){ #updated with new host annot 07/21/25
+
 if(subs == 'virus'){
-#just virus
-#run once ----
-#annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-virus-2-latest.rds"))
-#annot |> group_by(tx_id) |> tally() |> filter(n>1)
-#annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
-#saveRDS(annot, paste0(base_path2, "data/Annotations-virus/annot-virus-edgeR.rds"))
-#annot<-annot |> mutate(rowLabel = accession, .after = locus_tag)
-annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds")
+if(TRUE){#run once ----
+annot<-read_tsv(paste0(base_path, "data/Annotations-", subs, "/annot-virus-ext-latest.tsv.gz"))
+annot |> group_by(tx_id) |> tally() |> filter(n>1)
+annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
+saveRDS(annot, paste0(base_path, "data/Annotations-virus/annot-virus-edgeR.rds"))
+}else{
+ annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds")
+ }
 }else if(subs == "host"){
-annot<-readRDS(paste0(base_path2, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
+annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
 annot<-annot |> distinct()
 
 #check if empty
@@ -130,6 +129,7 @@ annot<-annot |> distinct()
     tally() |> 
     filter(n>1) |> 
     pull(rowLabel))
+}
 ##Ignore:
 #annot <- annot |> 
 #  mutate(rowLabel =
@@ -143,8 +143,7 @@ annot<-annot |> distinct()
 #  summarise(N=length(unique(rowLabel))) |>
 #  filter(N>1)
 
-#saveRDS(annot, file = paste0(base_path2, "data/Annotations-", subs, "/annot-", subs, "-edgeR.rds"))
-}
+#saveRDS(annot, file = paste0(base_path, "data/Annotations-", subs, "/annot-", subs, "-edgeR.rds"))
 #}
 
 ```

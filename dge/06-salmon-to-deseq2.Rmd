@@ -50,8 +50,8 @@ setwd(base_path)
 ## Select subset of genes to look at. 
 
 ## Options: 
-#subs <- "virus"; sampSet <- "39samp" #
-subs <- "virus"; sampSet <- "29samp"  # 
+subs <- "virus"; sampSet <- "39samp" #
+#subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
@@ -196,7 +196,7 @@ salmon_df <-
 
 salmon_df |> 
   write_tsv(paste0(res_path, "tables/salmon-output-", sampSet, ".tsv"))
-  system(glue::glue("gzip {res_path}tables/salmon-output-{sampSet}.tsv"))
+ system(glue::glue("gzip -f {res_path}tables/salmon-output-{sampSet}.tsv"))
 }else{
 salmon_df<-read_tsv(paste0(res_path, "tables/salmon-output-", sampSet, ".tsv.gz"))  
 }
@@ -220,8 +220,7 @@ annot<-annot |> distinct()
     pull(rowLabel))
 
 }else{
-  annot<-readRDS(paste0("data/Annotations-", subs, "/annot_", subs, "4.rds"))
-  annot<-annot |> mutate(rowLabel = accession, .after = locus_tag)
+  annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds")
 }
 ```
 
@@ -249,10 +248,14 @@ salmon_gene_quants <-
     left_join(tx_to_gene, join_by(tx_id)) |>
     dplyr::group_by(sample_name, tx_id, .drop=F) |>
     dplyr::summarise(across(c(n_reads, tpm), sum), .groups = "drop") |>
-  dplyr::left_join(tx_to_gene) |>
-  select(sample_name:tx_name)
+  dplyr::left_join(tx_to_gene)
+if(subs=="host"){
+  salmon_gene_quants<-salmon_gene_quants |> select(sample_name:tx_name)
+}else{
+  salmon_gene_quants<-salmon_gene_quants |> select(sample_name:protein_name)
+}
 write_tsv(salmon_gene_quants, file=paste0(res_path, "tables/salmon-output-processed", ext, ".tsv"))
-system(glue::glue("gzip {res_path}tables/salmon-output-processed{ext}.tsv"))
+system(glue::glue("gzip -f {res_path}tables/salmon-output-processed{ext}.tsv"))
 }else{
   salmon_gene_quants <- data.table::fread(paste0(res_path, "tables/salmon-output-processed", ext, ".tsv.gz")) |> 
     as_tibble()
@@ -1043,7 +1046,7 @@ gc()
 #https://support.bioconductor.org/p/9135244/
 #https://support.bioconductor.org/p/97676/
 
-if(FALSE){ #run once
+if(FALSE){ #run once (optional sanity check)
 nm <- assays(dds)[["avgTxLength"]]
 sf_deseq <- estimateSizeFactorsForMatrix(counts = counts(dds) / nm, type = sftype)
 #plot(x=colMeans(counts(ddsTxi)), y=sf_deseq)
@@ -1134,7 +1137,13 @@ length(subsetCL) #subset of interesting ones
 saveRDS(all_contrasts, file = paste0(res_path,"deseq_AllConts", ext, ".rds"))
 saveRDS(subsetCL, file = paste0(res_path, "deseq_ContsOfInterest.rds"))
 ## Function to run all contrasts ----
+if(subs=="host"){
 conts<-unname(all_contrasts[subsetCL])
+nam<-subsetCL
+}else if(subs=="virus"){
+nam<-readRDS(paste0("scratch/virus/", sampSet, "/edgeR_ContsOfInterest",ext, ".rds"))
+conts<-lapply(conts, function(x) c("condition", strsplit(x, "v")[[1]]))
+}
 #register(MulticoreParam(4))
 run_glm <- function(i = 1, alpha2 = 0.05, cont = NULL) {
   cont <- conts[[i]]
@@ -1210,7 +1219,7 @@ if(TRUE){ #only run this once
 #  dplyr::group_split()
 
 system.time(glm_subset<-lapply(1:length(conts), function(i) run_glm(i=i)))
-names(glm_subset)<-subsetCL
+names(glm_subset)<-nam
 #   user  system elapsed 
 #133.020  19.042 161.262 
 
@@ -1269,8 +1278,7 @@ test<-lapply(glm_subset, function(x){
  message("Contrast:", j)
  write_tsv(x, file = paste0(res_path, "tables/deseq-",j, "-", sampSet, ".tsv"))
   gc()
-  system(glue::glue("rm {res_path}tables/deseq-{j}-{sampSet}.tsv.gz"))
-  system(glue::glue("gzip {res_path}tables/deseq-{j}-{sampSet}.tsv"))
+  system(glue::glue("gzip -f {res_path}tables/deseq-{j}-{sampSet}.tsv"))
 })
 
 #just degs ---
@@ -1279,8 +1287,7 @@ test2<-lapply(glm_subset, function(x){
  message("Contrast:", j)
  x |> dplyr::filter(padjIHW <= 0.05) |> dplyr::filter(abs(log2FCshrink_ashr)>=2) |> group_by(DIR) |> arrange(padjIHW, by_group=T) |> write_tsv(file = paste0(res_path, "tables/deseq-DEGs-",j, ext, ".tsv"))
   gc()
-  system(glue::glue("rm {res_path}tables/deseq-DEGs-{j}{ext}.tsv.gz"))
-  system(glue::glue("gzip {res_path}tables/deseq-DEGs-{j}{ext}.tsv"))
+  system(glue::glue("gzip -f {res_path}tables/deseq-DEGs-{j}{ext}.tsv"))
 })
 
 
