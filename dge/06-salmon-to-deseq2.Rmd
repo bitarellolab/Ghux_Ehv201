@@ -50,8 +50,8 @@ setwd(base_path)
 ## Select subset of genes to look at. 
 
 ## Options: 
-subs <- "virus"; sampSet <- "39samp" #
-#subs <- "virus"; sampSet <- "29samp"  # 
+#subs <- "virus"; sampSet <- "39samp" #
+subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
@@ -1131,19 +1131,25 @@ subsetCL<-c(paste0("HHQ_inf_t", 1:4, "vHHQ_cntl_t", 1:4),
        paste0("HHQ_cntl_t", 1:4, "vDMSO_cntl_t", 1:4),
       paste0("HHQ_inf_t", 1:4, "vDMSO_inf_t", 1:4)
      )  
+if(subs=="virus"){
+  subsetCL<-subsetCL[!(grepl("cntl", subsetCL))]
+  if(sampSet!="39samp"){
+  subsetCL<-subsetCL[!(grepl("t1", subsetCL))]
+  if(sampSet!="29samp"){
+  subsetCL<-subsetCL[!(grepl("t2", subsetCL))] 
+  if(sampSet!="20samp"){
+  subsetCL<-subsetCL[!(grepl("t3", subsetCL))]
+  }
+  }
+  }}
 length(all_contrasts) #all possible contrasts 
 length(subsetCL) #subset of interesting ones
 
 saveRDS(all_contrasts, file = paste0(res_path,"deseq_AllConts", ext, ".rds"))
-saveRDS(subsetCL, file = paste0(res_path, "deseq_ContsOfInterest.rds"))
+saveRDS(subsetCL, file = paste0(res_path, "deseq_ContsOfInterest", ext, ".rds"))
 ## Function to run all contrasts ----
-if(subs=="host"){
 conts<-unname(all_contrasts[subsetCL])
-nam<-subsetCL
-}else if(subs=="virus"){
-nam<-readRDS(paste0("scratch/virus/", sampSet, "/edgeR_ContsOfInterest",ext, ".rds"))
-conts<-lapply(conts, function(x) c("condition", strsplit(x, "v")[[1]]))
-}
+
 #register(MulticoreParam(4))
 run_glm <- function(i = 1, alpha2 = 0.05, cont = NULL) {
   cont <- conts[[i]]
@@ -1219,17 +1225,14 @@ if(TRUE){ #only run this once
 #  dplyr::group_split()
 
 system.time(glm_subset<-lapply(1:length(conts), function(i) run_glm(i=i)))
-names(glm_subset)<-nam
 #   user  system elapsed 
-#133.020  19.042 161.262 
-
+#133.020  19.042 161.262 for 76samp
+names(glm_subset)<-subsetCL
 glm_subset<-lapply(glm_subset, function(x) x|> 
                      mutate(DIR = ifelse(log2FCshrink_ashr>0, "UP", ifelse(log2FCshrink_ashr<0, "DOWN", NA)), .after = "log2FCshrink_ashr"))
 names(glm_subset)<-subsetCL
 saveRDS(glm_subset, paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
-
 }else{
-#glm_all<-readRDS(paste0(res_path, "deseq_glm_CountsAllContrasts", ext, ".rds")) 
 glm_subset<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 }
 tab_header<-paste0("Table 1. DEGs per contrast (", subs, ", ", sampSet, ")")
@@ -1243,10 +1246,17 @@ tab0<-glm_subset2 |>
   group_by(contrast, DIR) |> 
   tally() |> 
   pivot_wider(names_from = DIR, values_from = n) |>
-  separate(contrast, into = c("exp", "cntl"), sep = "v",remove = F) |>
-  mutate(UP = ifelse(is.na(UP), 0, UP)) |>
-  mutate(DOWN = ifelse(is.na(DOWN), 0, DOWN)) |>
-  ungroup()
+  separate(contrast, into = c("exp", "cntl"), sep = "v",remove = F) 
+if(sum(colnames(tab0)=="UP")==1){
+  tab0<-tab0 |> mutate(UP = ifelse(is.na(UP), 0, UP))
+}else{
+  tab0<-tab0 |> mutate(UP = 0)
+}
+if(sum(colnames(tab0)=="DOWN")==1){
+  tab0<-tab0 |> mutate(DOWN = ifelse(is.na(DOWN), 0, DOWN))
+}else{
+  tab0<-tab0 |> mutate(DOWN = 0)
+}
 tab0<-tab0 |> mutate(Total = DOWN + UP) |> select(-c(exp, cntl)) |> arrange(desc(Total)) |>
   left_join(glm_subset2 |> group_by(contrast, DEG=padjIHW <= padj & abs(log2FCshrink_ashr)>=lfc) |> tally(name = "unchanged") |> filter(DEG==F) |> select(contrast, unchanged))
 
