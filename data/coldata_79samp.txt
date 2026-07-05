@@ -1,4 +1,4 @@
-files79	names	condition	trt_vir	treatment	virus	timePt	batch
+files	names	condition	trt_vir	treatment	virus	timePt	batch
 /Users/bbitarello/Documents/Ehux-for-pub/salmonQ-v1.10.3/HHQ_inf_t4_4/quant.sf	DMSO_cntl_t1_1	DMSO_cntl_t1	DMSO_cntl	DMSO	cntl	t1	b1
 /Users/bbitarello/Documents/Ehux-for-pub/salmonQ-v1.10.3/DMSO_cntl_t1_2/quant.sf	DMSO_cntl_t1_2	DMSO_cntl_t1	DMSO_cntl	DMSO	cntl	t1	b2
 /Users/bbitarello/Documents/Ehux-for-pub/salmonQ-v1.10.3/DMSO_cntl_t1_3/quant.sf	DMSO_cntl_t1_3	DMSO_cntl_t1	DMSO_cntl	DMSO	cntl	t1	b3
