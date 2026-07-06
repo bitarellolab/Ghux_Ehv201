@@ -11,139 +11,178 @@ conflicts_prefer(dplyr::filter)
 #http://www.bioinformatics.cc/article/article-content/268/go-enrichment-analysis-for-non-model-organisms/
 #https://seq-jchoi-bio.github.io/docs/RNASeq/HEATMAP_MANUAL/
 
-#tx_to_gene |> filter(!(is.na(`GOs`)) | !(is.na(`GO (GO)`)))
 
-base.path <- "~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"
+base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/scratch/")
 subs <- "host"
 sampSet <- "76samp" #
-res_path <- paste0(base.path, "host/76samp/")
+res_path <- paste0(base_path, "host/76samp/")
 (ext <- paste0("_", sampSet, "_", subs))
-#degs
-res<-readRDS(paste0(res_path, "deseq.tb.list.contsOfInterest.rds"))
 
-#remove sheets that don't contain contrasts 
-#names(res)
-res<-res[-c(1:4)]
+# Deseq x EdgeR -------
+res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 l.names<-names(res)
-# End of Deseq X edge -----
+ #tab deseq
+  res2_deseq<-do.call(rbind,res)
+  tabDESeq<-res2_deseq |> 
+    #filter(padjIHW <= padj) |> 
+    dplyr::filter(padjIHW <= padj) |>
+    dplyr::filter(abs(log2FCshrink_ashr)>=lfc)  |> 
+    group_by(contrast, DIR) |> 
+    tally() |> 
+    pivot_wider(names_from = DIR, values_from = n) |>
+    separate(contrast, into = c("exp", "cntl"), sep = "v",remove = F) 
+  if(sum(colnames(tabDESeq)=="UP")==1){
+    tabDESeq<-tabDESeq |> mutate(UP = ifelse(is.na(UP), 0, UP))
+  }else{
+    tabDESeq<-tabDESeq |> mutate(UP = 0)
+  }
+  if(sum(colnames(tabDESeq)=="DOWN")==1){
+    tabDESeq<-tabDESeq |> mutate(DOWN = ifelse(is.na(DOWN), 0, DOWN))
+  }else{
+    tabDESeq<-tabDESeq |> mutate(DOWN = 0)
+  }
+lfc<-2
+padj<-0.05
+degs_deseq_lfc2<-lapply(res, function(x){
+  j<-x$contrast[1]
+  message("Contrast:", j)
+  x |> dplyr::filter(padjIHW <= padj) |> 
+    dplyr::filter(abs(log2FCshrink_ashr)>=lfc)})
+conts<-names(res)
+tabDESeq<-tabDESeq |> mutate(Total = DOWN + UP) |> select(-c(exp, cntl)) |> arrange(desc(Total)) |>
+  left_join(res2_deseq|> group_by(contrast, DEG=padjIHW <= padj & abs(log2FCshrink_ashr)>=lfc) |> tally(name = "unchanged") |> filter(DEG==F) |> select(contrast, unchanged))
 
-###### Deseq Upset plots -----
-if(FALSE){
-## deseq degs (pIHW<=0.05, |lfc_shrunk| >=1)
-deseqDegs_lfc1 <- readRDS(paste0(res_path, "deseq_JustDEGs_p0.05lfc1.rds"))
-## edger deqs (padj<=0.05, |lfc| >=0.5
-edgeRDegs <- readRDS(paste0(res_path, "edgeR_ContsOfInteres2t_p0.05", ext, ".rds"))$glm
-edgeRDegs <- edgeRDegs |> mutate(DIR = ifelse(logFC > 0, "UP", ifelse(logFC <
-                                                                     0, "DOWN", NA)), .after = "logFC")
-l.names <- unique(edgeRDegs$contrast)
-
-tabEDGE <- edgeRDegs |>
-  filter(abs(logFC) >= 1)  |>
-  group_by(contrast, DIR, .drop = F) |>
-  tally() |>
+#tab deseq
+res2_deseq<-do.call(rbind,res)
+tabDESeq<-res2_deseq |> 
+  #filter(padjIHW <= padj) |> 
+  dplyr::filter(padjIHW <= padj) |>
+  dplyr::filter(abs(log2FCshrink_ashr)>=lfc)  |> 
+  group_by(contrast, DIR) |> 
+  tally() |> 
   pivot_wider(names_from = DIR, values_from = n) |>
-  separate(
-    contrast,
-    into = c("exp", "cntl"),
-    sep = "v",
-    remove = F
-  ) |>
-  mutate(DOWN = ifelse(is.na(DOWN) == T, 0, DOWN)) |>
-  mutate(UP = ifelse(is.na(UP) == T, 0, UP)) |>
-  mutate(Total = DOWN + UP) |>
-  mutate(contrast = factor(contrast, levels = names(deseqDegs_lfc1))) |>
-  ungroup() |>
-  dplyr::select(contrast, exp, cntl, UP, DOWN, Total) |>
-  arrange(contrast)
-tabEDGE |> gt() |> gtsave(paste0(res_path, "tables/edgeR_DEGsPerContOfInteres2tp0.05lfc1.png"))
-tabDeseq <- do.call(rbind, deseqDegs_lfc1) |>
-  #filter(contrast %in% l.names) |>
-  group_by(contrast, DIR) |>
-  tally() |>
-  pivot_wider(names_from = DIR, values_from = n) |>
-  separate(
-    contrast,
-    into = c("exp", "cntl"),
-    sep = "v",
-    remove = F
-  ) |>
-  mutate(Total = DOWN + UP) |>
-  mutate(contrast = factor(contrast, levels = names(deseqDegs_lfc1))) |>
-  ungroup() |>
-  dplyr::select(contrast, exp, cntl, UP, DOWN, Total) |>
-  arrange(contrast)
+  separate(contrast, into = c("exp", "cntl"), sep = "v",remove = F) 
+if(sum(colnames(tabDESeq)=="UP")==1){
+  tabDESeq<-tabDESeq |> mutate(UP = ifelse(is.na(UP), 0, UP))
+}else{
+  tabDESeq<-tabDESeq |> mutate(UP = 0)
+}
+if(sum(colnames(tabDESeq)=="DOWN")==1){
+  tabDESeq<-tabDESeq |> mutate(DOWN = ifelse(is.na(DOWN), 0, DOWN))
+}else{
+  tabDESeq<-tabDESeq |> mutate(DOWN = 0)
+}
+tabDESeq<-tabDESeq|>select(contrast, `Downregulated` = DOWN, `Upregulated` = UP, Unchanged = unchanged)
 
-(
-  tabBoth <- left_join(tabDeseq, tabEDGE, by = c("contrast", "exp", "cntl")) |> rename(
-    Deseq_UP = UP.x,
-    EdgeR_UP = UP.y,
-    Deseq_DOWN = DOWN.x,
-    EdgeR_DOWN = DOWN.y,
-    Deseq_Total = Total.x,
-    EdgeR_Total = Total.y
-  ) |> mutate(
-    EdgeR_UP = ifelse(is.na(EdgeR_UP) == T, 0, EdgeR_UP),
-    EdgeR_DOWN = ifelse(is.na(EdgeR_DOWN) == T, 0, EdgeR_DOWN),
-    EdgeR_Total = EdgeR_DOWN + EdgeR_UP
-  ) |>
-    mutate(contrast = factor(contrast, levels = names(deseqDegs_lfc1))) |>
+# EdgeR 
+
+  ## edger deqs (padj<=0.05, |lfc| >=0.5
+  edgeR<-read_tsv(paste0(res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv.gz")) |>
+    filter(contrast %in% conts)
+  edgeR<-edgeR |> 
+    mutate(DIR = ifelse(logFC > 0, "UP", ifelse(logFC < 0, "DOWN", NA)), .after = "logFC")
+  edgeR<-edgeR |>
+    mutate(contrast = factor(contrast, levels=conts))
+  edgeR |>
+    filter(abs(logFC)>lfc & FDR<padj) |>
+    group_by(contrast,.drop=F) |> tally() |> gt()
+  l.names <- unique(as.character(edgeR$contrast))
+  
+  edgeRDegs<-edgeR |>
+    filter(abs(logFC)>lfc & FDR<padj)
+  
+  tabEDGE <- edgeRDegs |>
+    group_by(contrast, DIR) |>
+    tally() |>
+    pivot_wider(names_from = DIR, values_from = n) |>
+    separate(
+      contrast,
+      into = c("exp", "cntl"),
+      sep = "v",
+      remove = F
+    ) |>
+    mutate(Downregulated = ifelse(is.na(DOWN) == T, 0, DOWN)) |>
+    mutate(Upregulated = ifelse(is.na(UP) == T, 0, UP)) |>
+    mutate(Total = Downregulated + Upregulated) |>
+    select(-c("UP", "DOWN", "exp", "cntl")) 
+  
+  tabEDGE |> ungroup() |> gt() |> gtsave(paste0(res_path, "tables/edgeR_DEGsPerContOfInterestp0.05lfc2.png"))
+ 
+
+  tabBoth <- left_join(tabDESeq |> ungroup(), tabEDGE |> ungroup(), by = c("contrast")) |> 
+    rename(
+    Deseq_UP = Upregulated.x,
+    EdgeR_UP = Upregulated.y,
+    Deseq_DOWN = Downregulated.x,
+    EdgeR_DOWN = Downregulated.y,
+    EdgeR_Total = Total) |>
+    mutate(Deseq_Total = Deseq_UP+Deseq_DOWN) |> 
+    mutate(
+      EdgeR_UP = ifelse(is.na(EdgeR_UP) == T, 0, EdgeR_UP),
+      EdgeR_DOWN = ifelse(is.na(EdgeR_DOWN) == T, 0, EdgeR_DOWN),
+      EdgeR_Total = EdgeR_DOWN + EdgeR_UP
+    ) |>
+    mutate(contrast = factor(contrast, levels = names(degs_deseq_lfc2))) |>
     arrange(contrast)
-)
+  
+write_tsv(tabBoth, file = paste0(res_path, "tables/deseq2xedgeR-degs", ext, ".tsv"))
+system(glue::glue("gzip -f {res_path}tables/deseq2xedgeR-degs{ext}.tsv"))
 
-tabBoth |> dplyr::select(-exp) |> gt() |>  gtsave(paste0(res_path, "tables/deseqVedgeR_DEGsp0.05lfc1.png"),
+# both
+tabBoth |> select(-c("Unchanged", contains("Total"))) |> gt() |>  gtsave(paste0(res_path, "tables/deseq2xedgeR-degs", ext,".png"),
                                                   expand = 20)
 
-edgeRDegs_lfc1 <- edgeRDegs |> filter(abs(logFC) >= 1) |> group_by(contrast) |>
+edgeRDegs_lfc2 <- edgeRDegs |> group_by(contrast) |>
   group_split()#not the best way
-l.names <- unlist(lapply(edgeRDegs_lfc1, function(x)
+l.names <- unlist(lapply(edgeRDegs_lfc2, function(x)
   unique(x$contrast)))
-names(edgeRDegs_lfc1) <- l.names
+names(edgeRDegs_lfc2) <- l.names
 
+subsetCont <- names(edgeRDegs_lfc2)
 
-
-subsetCont <- l.namesD[l.namesD %in% l.names]
-
-
+l.namesD<-names(degs_deseq_lfc2)
 deseqDegsNames <- lapply(l.namesD, function(x)
-  deseqDegs_lfc1[[x]]$locus_tag)
+  degs_deseq_lfc2[[x]]$locus_tag)
 names(deseqDegsNames) <- l.namesD
 edgeRDegsNames <- lapply(subsetCont, function(x)
-  edgeRDegs_lfc1[[x]]$locus_tag)
+  edgeRDegs_lfc2[[x]]$locus_tag)
 names(edgeRDegsNames) <- subsetCont
 
 degsBoth <- vector('list', length(subsetCont))
 names(degsBoth) <- subsetCont
 
-
-for (cont in l.namesD) {
-  if (cont %in% subsetCont) {
-    png(paste0(res_path, "figs/deseqVEdge_p0.05lfc1_venn", cont, ".png"))
+for (cont in subsetCont) {
+    message("Contrast:", cont)
+    png(paste0(res_path, "figs/deseqVEdge_p0.05lfc2_venn_", cont, ".png"))
     degsBoth <- list(edgeR = edgeRDegsNames[[cont]], deseq = deseqDegsNames[[cont]])
-    print(ggVennDiagram(degsBoth, force_upset = F, set_size = 1))
+    print(ggVennDiagram(degsBoth, force_upset = F, set_size = 2))
     dev.off()
   }
   
+for (cont in subsetCont) {
+  message("Contrast:", cont)
+  png(paste0(res_path, "figs/deseqVEdge_p0.05lfc2_upset_", cont, ".png"))
+  degsBoth <- list(edgeR = edgeRDegsNames[[cont]], deseq = deseqDegsNames[[cont]])
+  print(ggVennDiagram(degsBoth, force_upset = T, set_size = 2))
+  dev.off()
+} 
   
-  
-}
-}
 
 
-## We are interes2ted in “the effect of HHQ + virus” for each time point,
-
-
-# how to get this:
-
-# Effect of HHQ vs DMSO) ----
-
-# For each time point:
-#Set A|Exp: HHQ_inf|Cntl: DMSO_inf
-#Set C|Exp: HHQ_cntl|Cntl: DMSO_cntl
-#Set B|shared between A and C
+# separate time points
+l.names<-l.namesD
+remove(l.namesD)
 l.t1names <- l.names[grepl("t1", l.names)]
 l.t2names <- l.names[grepl("t2", l.names)]
 l.t3names <- l.names[grepl("t3", l.names)]
 l.t4names <- l.names[grepl("t4", l.names)]
+
+
+
+# For each time point:-------
+#Set A (HHQ+EhV)|Exp: HHQ_inf|Cntl: DMSO_inf
+#Set C (HHQ)|Exp: HHQ_cntl|Cntl: DMSO_cntl
+#Set B|shared between A and C
 #make a list with genes for each contrast
 #to use later for gsea, make these lists ordered
 #which(unlist(lapply(lapply(res, function(x) x |> group_by(contrast) |> summarise(bh = sum(padjBH <=0.05, na.rm = T), ihw = sum(padjIHW<=0.05, na.rm = T))), function(y) y$ihw > y$bh)))
@@ -152,10 +191,9 @@ l.t4names <- l.names[grepl("t4", l.names)]
 
 
 res2 <- lapply(res, function(x) {
-  x |> 
-    mutate(Ranking = ifelse(log2FoldChange < 0, -1, 
-                               ifelse(log2FoldChange >0, 1, 0))*-log10(pvalueRaw), .after = locus_tag) |> 
-    mutate(DE = padjIHW <= 0.05 & abs(log2FCshrink_ashr)>=1, .after = Ranking) |>
+  x |> mutate(Ranking = ifelse(log2FoldChange < 0, -1, 
+                            ifelse(log2FoldChange >0, 1, 0))*-log10(pvalueRaw), .after = locus_tag) |> 
+    mutate(DE = padjIHW < 0.05 & abs(log2FCshrink_ashr)>=2, .after = Ranking) |>
     group_by(locus_tag) |>
     dplyr::slice(1) |>
     #dplyr::select(DE, DIR, Ranking, everything()) |> 
@@ -168,7 +206,6 @@ res2t2 <- res2[l.t2names]
 res2t3 <- res2[l.t3names]
 res2t4 <- res2[l.t4names]
 #make a list with genes for each contrast
-
 
 #https://tomsing1.github.io/blog/posts/upset_plots/
 #also interes2ting: https://jokergoo.github.io/InteractiveComplexHeatmap/articles/deseq2_app.html
@@ -187,25 +224,28 @@ names(res2t3) <- temp$contrast
 names(res2t4) <- temp$contrast
 
 # See this for distinct vs intersect https://jokergoo.github.io/ComplexHeatmap-reference/book/upset-plot.html
-res2t1<-lapply(res2t1, function(x) x |> filter(DE == T) |> pull(locus_tag))
+res2t1<-lapply(res2t1, function(x) x |> 
+                 filter(DE == T) |> pull(locus_tag))
 #custom function
+conflicts_prefer(ComplexHeatmap::row_order)
+
 MyUpsetPlot(
   x = res2t1,
   mode = "distinct",
-  main = "45 min, DISTINCT",
+  main = "45 min",
   file = paste0(res_path, "figs/timePt1upsetDeseqDISTINCT.png")
 )
-MyUpsetPlot(
-  x = res2t1,
-  mode = "intersect",
-  main = "45 min, INTERSECT",
-  file = paste0(res_path, "figs/timePt1upsetDeseqINTERSECT.png")
-)
+ MyUpsetPlot(
+   x = res2t1,
+   mode = "intersect",
+   main = "45 min, INTERSECT",
+   file = paste0(res_path, "figs/timePt1upsetDeseqINTERSECT.png")
+ )
 res2t2<-lapply(res2t2, function(x) x |> filter(DE == T) |> pull(locus_tag))
 MyUpsetPlot(
   x = res2t2,
   mode = "distinct",
-  main = "3 hours, DISTINCT",
+  main = "3 hours",
   file = paste0(res_path, "figs/timePt2upsetDeseqDISTINCT.png")
 )
 MyUpsetPlot(
@@ -218,30 +258,30 @@ res2t3<-lapply(res2t3, function(x) x |> filter(DE == T) |> pull(locus_tag))
 MyUpsetPlot(
   x = res2t3,
   mode = "distinct",
-  main = "8 hours, DISTINCT",
+  main = "8 hours",
   file = paste0(res_path, "figs/timePt3upsetDeseqDISTINCT.png")
 )
-MyUpsetPlot(
-  x = res2t3,
-  mode = "intersect",
-  main = "8 hours, INTERSECT",
-  file = paste0(res_path, "figs/timeP3upsetDeseqINTERSECT.png")
-)
+ MyUpsetPlot(
+   x = res2t3,
+   mode = "intersect",
+   main = "8 hours, INTERSECT",
+   file = paste0(res_path, "figs/timeP3upsetDeseqINTERSECT.png")
+ )
 res2t4<-lapply(res2t4, function(x) x |> filter(DE == T) |> pull(locus_tag))
 MyUpsetPlot(
   x = res2t4,
   mode = "distinct",
-  main = "24 hours, DISTINCT",
+  main = "24 hours",
   file = paste0(res_path, "figs/timePt4upsetDeseqDISTINCT.png")
 )
-MyUpsetPlot(
-  x = res2t4,
-  mode = "intersect",
-  main = "24 hours, INTERSECT",
-  file = paste0(res_path, "figs/timeP4upsetDeseqINTERSECT.png")
-)
+ MyUpsetPlot(
+   x = res2t4,
+   mode = "intersect",
+   main = "24 hours, INTERSECT",
+   file = paste0(res_path, "figs/timeP4upsetDeseqINTERSECT.png")
+ )
 
-## Tables ------------------------------
+## Tables
 #now make tables
 # For each time point:
 #Set A|Exp: HHQ_inf|Cntl: DMSO_inf
@@ -302,10 +342,11 @@ names(Setst4) <- c("SetA",
 Setst4$SetA <- res2t4$`HHQ (inf) vs. DMSO (inf)`
 Setst4$SetC <- res2t4$`HHQ (cntl) vs. DMSO (cntl)`
 Setst4$SetB <- base::intersect(Setst4$SetA, Setst4$SetC)
-# 2. next get effect of virus (inf vs cntl (non-inf)) -----
+
+## 2. next get effect of virus (inf vs cntl (non-inf)) 
 #For each time point:
-#Set D| Exp: HHQ_inf|Cntl: HHQ_cntl)
-#Set F| Exp: DMSO_inf|Cntl: DMSO_cntl
+#Set D (HHQ)| Exp: HHQ_inf|Cntl: HHQ_cntl)
+#Set F (Ehv)| Exp: DMSO_inf|Cntl: DMSO_cntl
 #Set E| shared between D and F
 Setst1$SetD <- res2t1$`HHQ (inf) vs. HHQ (cntl)`
 Setst1$SetF <- res2t1$`DMSO (inf) vs. DMSO (cntl)`
@@ -445,126 +486,148 @@ MyUpsetPlot(
   mode = "distinct",
   file = paste0(res_path, "figs/HHQandVireffectUpsett4.png")
 )
-## Finally Make The Tables ----
-annot <- readRDS(paste0(base.path, "data/Annotations-host/annot_", subs, "4.rds"))
-Names.AnnotAll<-readxl::excel_sheets(paste0(base.path, "data/Annotations-host/annot-host-ext.xlsx"))
-Names.AnnotAll<-Names.AnnotAll[-c(1,2,3,4,9)]
-AllAnnot<-vector('list', 4)
-names(AllAnnot)<-Names.AnnotAll
-for(i in 1:4){
+## Tables ----
+#annot <- readRDS(paste0(base.path, "data/Annotations-host/annot_", subs, "4.rds"))
+annot<-readRDS(paste0("data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
+#Names.AnnotAll<-readxl::excel_sheets(paste0("data/Annotations-host/annot-host-ext-2026-06-28.tsv.gz"))
+#Names.AnnotAll<-Names.AnnotAll[-c(1,2,3,4,9)]
+#AllAnnot<-vector('list', 4)
+#names(AllAnnot)<-Names.AnnotAll
+#for(i in 1:4){
   
-try(AllAnnot[[i]]<-readxl::read_xlsx(paste0(base.path, "data/Annotations-host/annot-host-ext.xlsx"), sheet=Names.AnnotAll[i]) )
-}
-wb1 <- createWorkbook()
+#  try(AllAnnot[[i]]<-readxl::read_xlsx(paste0(base.path, "data/Annotations-host/annot-host-ext.xlsx"), sheet=Names.AnnotAll[i]) )
+#}
 
 # loop over export tibbles to add worksheets
 
-options("openxlsx.maxWidth" = 40)
+#options("openxlsx.maxWidth" = 40)
+wb <- xlsx::createWorkbook()
 
-for (i in 1:length(names(Setst1))) {
-  cat(i, "\n")
-  addWorksheet(wb1, sheetName = names(Setst1)[i])
-  writeDataTable(
-    wb1,
-    sheet = names(Setst1)[i],
-    left_join(tibble(locus_tag = Setst1[[i]]), annot, multiple = "first", by = "locus_tag"),
-    tableStyle = "TablestyleMedium2"
-  )
-  setColWidths(
-    wb1,
-    sheet = names(Setst1)[i],
-    cols = 1:length(Setst1[[i]]),
-    widths = "auto"
-  )
+# loop over export tibbles to add worksheets
+jgc <- function()
+{
+  require(rJava)
+  gc()
+  .jcall("java/lang/System", method = "gc")
+}    
+
+temp<-names(Setst1)
+#Set A|Exp: HHQ_inf|Cntl: DMSO_inf
+#Set C|Exp: HHQ_cntl|Cntl: DMSO_cntl
+#Set B|shared between A and C
+#Set D| Exp: HHQ_inf|Cntl: HHQ_cntl)
+#Set F| Exp: DMSO_inf|Cntl: DMSO_cntl
+#Set E| shared between D and F
+#Set A': Uniquely A (i.e., set A minus Set B)
+#Set D': Uniquely D (i.e., set D minus set E)
+#Set G: shared between A' and D'
+temp<-tibble(set=names(Setst1), 
+             name = c("HHQ_infvDMSO_inf", 
+                      "HHQ_infvDMSO_inf & HHQ_infvHHQ_cntl",
+                      "HHQ_cntlvDMSO_cntl", 
+                      "HHQ_infvHHQ_cntl", 
+                      "HHQ_infvHHQ_cntl & DMSO_infvDMSO_cntl", 
+                      "DMSO_infvDMSO_cntl",
+                      "HHQ_infvDMSO_inf (unique)",
+                      "HHQ_infvHHQ_cntl (unique)",
+                      "HHQ_infvDMSO_inf (unique) & HHQ_infvHHQ_cntl (unique)"))
+message("Creating sheet: legend")
+sh<-xlsx::createSheet(wb, "Legend")
+message("Adding data frame ", "Legend")
+h<-as.data.frame(temp)
+xlsx::addDataFrame(h, sh,row.names = F)
+for (i in 1:nrow(temp)) {
+  gc()
+  jgc()
+  j<-temp[i,]$set
+  j1<-temp[i,]$name
+  message("Creating sheet ", j1)
+  sh<-xlsx::createSheet(wb, j)
+  message("Adding data frame ", j)
+  h<-as.data.frame(left_join(tibble(locus_tag = Setst1[[j]]), annot, multiple = "first", by = "locus_tag"))
+  xlsx::addDataFrame(h, sh,row.names = F)
+ 
 }
 
-saveWorkbook(
-  wb1,
-  overwrite = TRUE,
+xlsx::saveWorkbook(
+  wb,
   file = paste0(res_path, "tables/deseq_DEGSets_t1", ext, ".xlsx")
 )
 
-wb2 <- createWorkbook()
-options("openxlsx.maxWidth" = 40)
+wb2 <- xlsx::createWorkbook()
 
-for (i in 1:length(names(Setst2))) {
-  cat(i, "\n")
-  addWorksheet(wb2, sheetName = names(Setst2)[i])
-  writeDataTable(
-    wb2,
-    sheet = names(Setst2)[i],
-    left_join(tibble(locus_tag = Setst2[[i]]), annot, multiple = "first", by = "locus_tag"),
-    tableStyle = "TablestyleMedium2"
-  )
-  setColWidths(
-    wb2,
-    sheet = names(Setst2)[i],
-    cols = 1:length(Setst2[[i]]),
-    widths = "auto"
-  )
+message("Creating sheet: legend")
+sh<-xlsx::createSheet(wb2, "Legend")
+message("Adding data frame ", "Legend")
+h<-as.data.frame(temp)
+xlsx::addDataFrame(h, sh,row.names = F)
+
+for (i in 1:nrow(temp)) {
+  gc()
+  jgc()
+  j<-temp[i,]$set
+  j1<-temp[i,]$name
+  message("Creating sheet ", j1)
+  sh<-xlsx::createSheet(wb2, j)
+  message("Adding data frame ", j)
+  h<-as.data.frame(left_join(tibble(locus_tag = Setst2[[j]]), annot, multiple = "first", by = "locus_tag"))
+  xlsx::addDataFrame(h, sh,row.names = F)
+  
 }
-
-saveWorkbook(
-  wb2,
-  overwrite = TRUE,
+xlsx::saveWorkbook(wb2,
   file = paste0(res_path, "tables/deseq_DEGSets_t2", ext, ".xlsx")
 )
 
-wb3 <- createWorkbook()
-options("openxlsx.maxWidth" = 40)
+wb3 <- xlsx::createWorkbook()
 
-for (i in 1:length(names(Setst3))) {
-  cat(i, "\n")
-  addWorksheet(wb3, sheetName = names(Setst3)[i])
-  writeDataTable(
-    wb3,
-    sheet = names(Setst3)[i],
-    left_join(tibble(locus_tag = Setst3[[i]]), annot, multiple = 'all', by = "locus_tag"),
-    tableStyle = "TablestyleMedium2"
-  )
-  setColWidths(
-    wb3,
-    sheet = names(Setst3)[i],
-    cols = 1:length(Setst3[[i]]),
-    widths = "auto"
-  )
+message("Creating sheet: legend")
+sh<-xlsx::createSheet(wb3, "Legend")
+message("Adding data frame ", "Legend")
+h<-as.data.frame(temp)
+xlsx::addDataFrame(h, sh,row.names = F)
+
+for (i in 1:nrow(temp)) {
+  gc()
+  jgc()
+  j<-temp[i,]$set
+  j1<-temp[i,]$name
+  message("Creating sheet ", j1)
+  sh<-xlsx::createSheet(wb3, j)
+  message("Adding data frame ", j)
+  h<-as.data.frame(left_join(tibble(locus_tag = Setst3[[j]]), annot, multiple = "first", by = "locus_tag"))
+  xlsx::addDataFrame(h, sh,row.names = F)
+  
 }
-
-saveWorkbook(
-  wb3,
-  overwrite = TRUE,
-  file = paste0(res_path, "tables/deseq_DEGSets_t3", ext, ".xlsx")
+xlsx::saveWorkbook(wb3,
+                   file = paste0(res_path, "tables/deseq_DEGSets_t3", ext, ".xlsx")
 )
 
-wb4 <- createWorkbook()
-options("openxlsx.maxWidth" = 40)
+wb4 <- xlsx::createWorkbook()
 
-for (i in 1:length(names(Setst4))) {
-  cat(i, "\n")
-  addWorksheet(wb4, sheetName = names(Setst4)[i])
-  writeDataTable(
-    wb4,
-    sheet = names(Setst4)[i],
-    left_join(tibble(locus_tag = Setst4[[i]]), annot, multiple = 'first', by = "locus_tag"),
-    tableStyle = "TablestyleMedium2"
-  )
-  setColWidths(
-    wb4,
-    sheet = names(Setst4)[i],
-    cols = 1:length(Setst4[[i]]),
-    widths = "auto"
-  )
+message("Creating sheet: legend")
+sh<-xlsx::createSheet(wb4, "Legend")
+message("Adding data frame ", "Legend")
+h<-as.data.frame(temp)
+xlsx::addDataFrame(h, sh,row.names = F)
+
+for (i in 1:nrow(temp)) {
+  gc()
+  jgc()
+  j<-temp[i,]$set
+  j1<-temp[i,]$name
+  message("Creating sheet ", j1)
+  sh<-xlsx::createSheet(wb4, j)
+  message("Adding data frame ", j)
+  h<-as.data.frame(left_join(tibble(locus_tag = Setst4[[j]]), annot, multiple = "first", by = "locus_tag"))
+  xlsx::addDataFrame(h, sh,row.names = F)
+  
 }
-
-saveWorkbook(
-  wb4,
-  overwrite = TRUE,
-  file = paste0(res_path, "tables/deseq_DEGSets_t4", ext, ".xlsx")
+xlsx::saveWorkbook(wb4,
+                   file = paste0(res_path, "tables/deseq_DEGSets_t4", ext, ".xlsx")
 )
-
 gc()
 
-sessionInfo()
+
 #gostplot(gostresUP, capped = FALSE, interactive = TRUE)
 
 #gprofiler2::publish_gosttable(gostresUP)
@@ -573,3 +636,7 @@ sessionInfo()
 
 #resGO[["t4"]][["HHQ_inf_t4vDMSO_inf_t4"]][['UP']]$result |> ggplot(aes(x = source, y = -log10(p_value), color = source)) + geom_jitter(data = resGO[["t4"]][["HHQ_inf_t4vDMSO_inf_t4"]][['UP']]$result |> filter(p_value > 0.05), color = "lightgray") + geom_jitter(data = resGO[["t4"]][["HHQ_inf_t4vDMSO_inf_t4"]][['UP']]$result |> filter(p_value <= 0.05))+bb_theme()
 
+## End ----
+sessionInfo() |>
+  capture.output() |>
+  writeLines(paste0("logs/host-degs-sampSet-", lubridate::today(), ".txt"))

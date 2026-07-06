@@ -1,8 +1,9 @@
 # Plots for Publication
-source("dge/scripts/Functions.R")
-source("dge/scripts/plot_funcs.R")
+source("dge/Functions.R")
+source("dge/plot_funcs.R")
 library(conflicted)
 conflicts_prefer(dplyr::filter)
+showtext::showtext_opts(dpi=300)
 ## this font is finicky
 #systemfonts::fonts_as_import(family = "Roboto Condensed")
 #systemfonts::match_font("Roboto Condensed")
@@ -12,7 +13,7 @@ base_path<-"~/Documents/GitHub/Ehux_Ehv201/scratch/"
 
 # Template ----
 if(FALSE){ #not run
-plot_path = getwd()
+plot_path = path.expand(base_path)
 filepath = paste0(plot_path, "test2")
 # SVG sizes are in inches, not pixels
 res = 300
@@ -40,9 +41,7 @@ res_path <- paste0(base_path, "host/76samp/")
 #timeP3upsetDeseqINTERSECT.png
 #timeP2upsetDeseqINTERSECT.png
 #timePt1upsetDeseqINTERSECT.png
-
-res <- readRDS(paste0(res_path, "deseq.tb.list.contsOfInterest.rds"))
-res <- res[-c(1:4)]
+res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 l.names <- names(res)
 gc()
 l.t1names <- l.names[grepl("t1", l.names)]
@@ -60,7 +59,7 @@ res2 <- mclapply2(res, function(x) {
       .after = locus_tag
     ) |>
     mutate(DE = padjIHW <= 0.05 &
-             abs(log2FCshrink_ashr) >= 1,
+             abs(log2FCshrink_ashr) >= 2,
            .after = Ranking) |>
     group_by(locus_tag) |>
     dplyr::slice(1) |>
@@ -86,9 +85,6 @@ res2t2 <- lapply(res2t2, function(x)
   x |> dplyr::filter(DE == T) |> pull(locus_tag))
 res2t1 <- lapply(res2t1, function(x)
   x |> dplyr::filter(DE == T) |> pull(locus_tag))
-
-
-
 
 
 filepath <- paste0(res_path, "figs/timeP", 1:4, "upsetDeseqINTERSECT.svg")

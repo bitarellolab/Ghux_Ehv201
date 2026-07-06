@@ -1302,7 +1302,7 @@ test2<-lapply(glm_subset, function(x){
 
 
 #custom function
-lapply(subsetCL, function(x) VolcanoFunc(cont = x))
+lapply(subsetCL, function(x) VolcanoFunc(cont = x, lfc = 1.5))
 ## End ---
 sessionInfo()
 

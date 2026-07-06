@@ -6,8 +6,8 @@ library(fgsea)
 library(conflicted)
 conflicts_prefer(tidyr::unite)
 conflicts_prefer(dplyr::filter)
-source("~/Documents/GitHub/rna-seq-host-virus/dge/scripts/Functions.R")
-source("~/Documents/GitHub/rna-seq-host-virus/dge/scripts/plot_funcs.R")
+source("~/Documents/GitHub/Ehux_Ehv201/dge/Functions.R")
+source("~/Documents/GitHub/Ehux_Ehv201/dge/plot_funcs.R")
 
 
 base_path <- "~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/BitaLab/BitaLab_not_shared/Research/rna-seq-host-virus/data_and_res_gh_repo/"
