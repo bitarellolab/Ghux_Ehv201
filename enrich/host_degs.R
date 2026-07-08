@@ -11,7 +11,22 @@ conflicts_prefer(dplyr::filter)
 #http://www.bioinformatics.cc/article/article-content/268/go-enrichment-analysis-for-non-model-organisms/
 #https://seq-jchoi-bio.github.io/docs/RNASeq/HEATMAP_MANUAL/
 
+# Goals
 
+#1. Compare deseq and edgeR DEGs for host
+#2. Make files with DEGs from list of contrasts of interest
+#3. Make other lists of DEGs:
+#Set A|Exp: HHQ_inf|Cntl: DMSO_inf
+#Set C|Exp: HHQ_cntl|Cntl: DMSO_cntl
+#Set B|shared between A and C
+#Set D| Exp: HHQ_inf|Cntl: HHQ_cntl)
+#Set F| Exp: DMSO_inf|Cntl: DMSO_cntl
+#Set E| shared between D and F
+#Set A': Uniquely A (i.e., set A minus Set B)
+#Set D': Uniquely D (i.e., set D minus set E)
+#Set G: shared between A' and D'
+  
+# Read in stuff -----
 base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/scratch/")
 subs <- "host"
 sampSet <- "76samp" #
