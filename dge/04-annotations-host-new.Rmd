@@ -720,11 +720,36 @@ tmp<-annot_host2 |>
   tally(name = "NrTranscripts")
 annot_host2<-left_join(annot_host2, tmp)
 annot_host2<-annot_host2 |> arrange(locus_tag)
+annot_host2<-annot_host2 |> select(-c(EnsemblProtists, origin, `Gene Names (primary)`))
+annot_host2<-NAColOmit(annot_host2)
+annot_host2<-annot_host2 |> distinct()
 annot_host2<-annot_host2 |> dplyr::select(tx_id, locus_tag, tx_name, protein_id, biotype, UniqueLocusTag, NrTranscripts, everything())
+annot_host2<-annot_host2 |> dplyr::rename(JGIDB = emihu1_protein)
 
+#fix missing ENA accession for genes with more than 1 transcript
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD09865", "KB868610", ENA_accession))
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD09864", "KB868610", ENA_accession))
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD33031", "KB864457", ENA_accession))
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD33030", "KB864457", ENA_accession))
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD33288", "KB864456", ENA_accession))
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD33289", "KB864456", ENA_accession))
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD10730", "KB868310", ENA_accession))
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD10729", "KB868310", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD36455", "KB864166", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD36454", "KB864166", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD14723", "KB867194", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD14724", "KB867194", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD31962", "KB864558", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD31963", "KB864558", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD31964", "KB864558", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD40771", "KB863201", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD40772", "KB863201", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD29652", "KB864807", ENA_accession)) 
+annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="	EOD29653", "KB864807", ENA_accession)) 
 saveRDS(annot_host2,paste0(base.path,"data/Annotations-host/annot-host-ext2-", lubridate::today(),".rds"))
 
 write_tsv(annot_host2,paste0(base.path, "data/Annotations-host/tx-to-gene-host-", lubridate::today(),".tsv"))
+system(paste0("gzip -f data/Annotations-host/annot-host-ext2-",lubridate::today(), ".tsv"))
 #I'm here (Jun 28, 2026). All good up to here.
 
 #temp<-as.data.frame(host_ena);
@@ -920,7 +945,9 @@ remove(temp);gc();getsizes()
 remove(annot_host, annot_host2);gc();getsizes()
 
 ##
-annot_host4 <- full_join(annot_host3, bind_rows(host_tib, host_tib2), by = "tx_id") apply(annot_host4 |> select(tx_id:NCBI_Entrez_geneID), 2, function(x) length(unique(x)))
+annot_host4 <- full_join(annot_host3, bind_rows(host_tib, host_tib2), by = "tx_id") 
+
+apply(annot_host4 |> select(tx_id:NCBI_Entrez_geneID), 2, function(x) length(unique(x)))
 
 apply(annot_host4, 2, function(x) sum(is.na(x)))
 
@@ -1536,7 +1563,9 @@ uniprot_host3<-uniprot_host3 |> dplyr::mutate(Uniprot_Entry = case_when(is.na(En
 uniprot_host3 |> group_by(Uniprot_Entry) |> tally() |> dplyr::filter(n>1)
 
 annot_host3<-left_join(annot_host, uniprot_host3)
-annot_host3 |> dplyr::filter(UniqueLocusTag==F) |> dplyr::select(locus_tag:Uniprot_Entry) |>dplyr::select(-UniqueLocusTag) annot_host3<-isGOannot(annot_host3, cols = c("GO_BP", "GO_CC", "GO_MF", "GO IDs"))
+annot_host3 |> dplyr::filter(UniqueLocusTag==F) |> dplyr::select(locus_tag:Uniprot_Entry) |> dplyr::select(-UniqueLocusTag) 
+
+annot_host3<-isGOannot(annot_host3, cols = c("GO_BP", "GO_CC", "GO_MF", "GO IDs"))
 
 #note: add this version above of uniprot_host_comb to annot-host-ext.xlsx                             
                              
@@ -1561,7 +1590,7 @@ length(unique(polara_annot$locus_tag))
 polara_annot<-polara_annot |> dplyr::filter(tx_id %in% keep_these)
 nrow(polara_annot)
 nrow(annot_host)
-11111 stopped here
+
 ###
 annot_host2 <- left_join(annot_host, uniprot_host_comb, multiple = 'first')
 dup_annot2 <- annot_host2 |> group_by(gene_id) |> tally() |>dplyr::filter(n >

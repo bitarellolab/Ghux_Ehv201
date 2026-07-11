@@ -790,13 +790,21 @@ dev.off()
 # SOM Data File 5 ---------
 
 
-annot<-readRDS("data/Annotations-host/annot-host-ext2-2026-06-28.rds")
+annot<-readRDS("data/Annotations-host/annot-host-ext2-2026-07-11.rds")
+nrow(annot) #37334
+keep_these<-readRDS("scratch/host/76samp/genes_keep_final2_76samp_host.rds")
+annot<-annot |> filter(locus_tag %in% keep_these)
+nrow(annot) #28069
+annot<-NAColOmit(annot)
+sort(apply(annot, 2, function(x) allNAs(x)))
+#annot<-annot |> mutate(NACols=apply(annot, 1, function(x) allNAs(x)))
 annot<-annot |> distinct()
-annot<-annot |> select(-c(EnsemblProtists, origin))
-annot<-annot |> distinct()
-
-legend<-tibble(`Column Name` = colnames(host_annot), 
-               `Description` = c("Genkank transcript ID","locus tag (ncbi). Note, if more than one transcript exists for a given locus tag, a '-' was added at the end followed by a number to differentiate them"))
+#summary(NAPerRow(annot) |> pull(TotalNAs))
+annot<-NAPerRow(annot)
+keep_these<-readRDS("scratch/host/76samp/genes_keep_final2_76samp_host.rds")
+annot |> select(tx_id, locus_tag,rowLabel, tx_name, biotype, protein_id,)
+#legend<-tibble(`Column Name` = colnames(host_annot), 
+#               `Description` = c("Genkank transcript ID","locus tag (ncbi). Note, if more than one transcript exists for a given locus tag, a '-' was added at the end followed by a number to differentiate them"))
 
 # Playground ----------
 MyPheatmapClust(
