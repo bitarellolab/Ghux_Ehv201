@@ -1,11 +1,12 @@
 library(tidyverse)
 library(ggVennDiagram)
-library(openxlsx)
-library(ggbeeswarm)
+#library(openxlsx)
 library(data.table)
 source("dge/Functions.R")
 source("dge/plot_funcs.R")
+library(conflicted)
 conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::rename)
 
 #https://guangchuangyu.github.io/2015/05/use-clusterprofiler-as-an-universal-enrichment-analysis-tool/
 #http://www.bioinformatics.cc/article/article-content/268/go-enrichment-analysis-for-non-model-organisms/
@@ -32,79 +33,41 @@ subs <- "host"
 sampSet <- "76samp" #
 res_path <- paste0(base_path, "host/76samp/")
 (ext <- paste0("_", sampSet, "_", subs))
+res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 
 # Deseq x EdgeR -------
-res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 l.names<-names(res)
- #tab deseq
-  res2_deseq<-do.call(rbind,res)
-  tabDESeq<-res2_deseq |> 
-    #filter(padjIHW <= padj) |> 
-    dplyr::filter(padjIHW <= padj) |>
-    dplyr::filter(abs(log2FCshrink_ashr)>=lfc)  |> 
-    group_by(contrast, DIR) |> 
-    tally() |> 
-    pivot_wider(names_from = DIR, values_from = n) |>
-    separate(contrast, into = c("exp", "cntl"), sep = "v",remove = F) 
-  if(sum(colnames(tabDESeq)=="UP")==1){
-    tabDESeq<-tabDESeq |> mutate(UP = ifelse(is.na(UP), 0, UP))
-  }else{
-    tabDESeq<-tabDESeq |> mutate(UP = 0)
-  }
-  if(sum(colnames(tabDESeq)=="DOWN")==1){
-    tabDESeq<-tabDESeq |> mutate(DOWN = ifelse(is.na(DOWN), 0, DOWN))
-  }else{
-    tabDESeq<-tabDESeq |> mutate(DOWN = 0)
-  }
 lfc<-2
 padj<-0.05
+
+tabDESeq<-read_tsv("scratch/host/76samp/tables/Table1.tsv")
 degs_deseq_lfc2<-lapply(res, function(x){
   j<-x$contrast[1]
   message("Contrast:", j)
   x |> dplyr::filter(padjIHW <= padj) |> 
     dplyr::filter(abs(log2FCshrink_ashr)>=lfc)})
 conts<-names(res)
-tabDESeq<-tabDESeq |> mutate(Total = DOWN + UP) |> select(-c(exp, cntl)) |> arrange(desc(Total)) |>
-  left_join(res2_deseq|> group_by(contrast, DEG=padjIHW <= padj & abs(log2FCshrink_ashr)>=lfc) |> tally(name = "unchanged") |> filter(DEG==F) |> select(contrast, unchanged))
-
-#tab deseq
-res2_deseq<-do.call(rbind,res)
-tabDESeq<-res2_deseq |> 
-  #filter(padjIHW <= padj) |> 
-  dplyr::filter(padjIHW <= padj) |>
-  dplyr::filter(abs(log2FCshrink_ashr)>=lfc)  |> 
-  group_by(contrast, DIR) |> 
-  tally() |> 
-  pivot_wider(names_from = DIR, values_from = n) |>
-  separate(contrast, into = c("exp", "cntl"), sep = "v",remove = F) 
-if(sum(colnames(tabDESeq)=="UP")==1){
-  tabDESeq<-tabDESeq |> mutate(UP = ifelse(is.na(UP), 0, UP))
-}else{
-  tabDESeq<-tabDESeq |> mutate(UP = 0)
-}
-if(sum(colnames(tabDESeq)=="DOWN")==1){
-  tabDESeq<-tabDESeq |> mutate(DOWN = ifelse(is.na(DOWN), 0, DOWN))
-}else{
-  tabDESeq<-tabDESeq |> mutate(DOWN = 0)
-}
-tabDESeq<-tabDESeq|>select(contrast, `Downregulated` = DOWN, `Upregulated` = UP, Unchanged = unchanged)
 
 # EdgeR 
 
   ## edger deqs (padj<=0.05, |lfc| >=0.5
   edgeR<-read_tsv(paste0(res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv.gz")) |>
-    filter(contrast %in% conts)
+    filter(contrast %in% conts) |> na.omit()
   edgeR<-edgeR |> 
     mutate(DIR = ifelse(logFC > 0, "UP", ifelse(logFC < 0, "DOWN", NA)), .after = "logFC")
   edgeR<-edgeR |>
     mutate(contrast = factor(contrast, levels=conts))
   edgeR |>
-    filter(abs(logFC)>lfc & FDR<padj) |>
-    group_by(contrast,.drop=F) |> tally() |> gt()
+    filter(abs(logFC)>=lfc) |>
+    mutate(contrast = factor(contrast, levels=conts)) |>
+    group_by(contrast,.drop=F) |> tally() |> 
+    arrange(desc(n))|>
+    gt()
   l.names <- unique(as.character(edgeR$contrast))
   
   edgeRDegs<-edgeR |>
-    filter(abs(logFC)>lfc & FDR<padj)
+    filter(abs(logFC)>=lfc) |>
+    mutate(contrast = factor(contrast, levels = conts))
   
   tabEDGE <- edgeRDegs |>
     group_by(contrast, DIR) |>
@@ -119,9 +82,10 @@ tabDESeq<-tabDESeq|>select(contrast, `Downregulated` = DOWN, `Upregulated` = UP,
     mutate(Downregulated = ifelse(is.na(DOWN) == T, 0, DOWN)) |>
     mutate(Upregulated = ifelse(is.na(UP) == T, 0, UP)) |>
     mutate(Total = Downregulated + Upregulated) |>
-    select(-c("UP", "DOWN", "exp", "cntl")) 
+    select(-c("UP", "DOWN", "exp", "cntl")) |> arrange(contrast)
   
   tabEDGE |> ungroup() |> gt() |> gtsave(paste0(res_path, "tables/edgeR_DEGsPerContOfInterestp0.05lfc2.png"))
+  tabEDGE |> ungroup() |> write_tsv(paste0(res_path, "tables/edgeR_DEGsPerContOfInterestp0.05lfc2.tsv"))
  
 
   tabBoth <- left_join(tabDESeq |> ungroup(), tabEDGE |> ungroup(), by = c("contrast")) |> 
@@ -138,14 +102,16 @@ tabDESeq<-tabDESeq|>select(contrast, `Downregulated` = DOWN, `Upregulated` = UP,
       EdgeR_Total = EdgeR_DOWN + EdgeR_UP
     ) |>
     mutate(contrast = factor(contrast, levels = names(degs_deseq_lfc2))) |>
+    select(-"Unchanged") |>
     arrange(contrast)
   
 write_tsv(tabBoth, file = paste0(res_path, "tables/deseq2xedgeR-degs", ext, ".tsv"))
-system(glue::glue("gzip -f {res_path}tables/deseq2xedgeR-degs{ext}.tsv"))
 
-# both
-tabBoth |> select(-c("Unchanged", contains("Total"))) |> gt() |>  gtsave(paste0(res_path, "tables/deseq2xedgeR-degs", ext,".png"),
-                                                  expand = 20)
+tabBoth |> 
+  select(-contains("Total")) |> 
+  gt() |> 
+  gtsave(paste0(res_path, "tables/deseq2xedgeR-degs", ext,".png"),
+                                                                         expand = 20)
 
 edgeRDegs_lfc2 <- edgeRDegs |> group_by(contrast) |>
   group_split()#not the best way
@@ -184,17 +150,7 @@ for (cont in subsetCont) {
   
 
 
-# separate time points
-l.names<-l.namesD
-remove(l.namesD)
-l.t1names <- l.names[grepl("t1", l.names)]
-l.t2names <- l.names[grepl("t2", l.names)]
-l.t3names <- l.names[grepl("t3", l.names)]
-l.t4names <- l.names[grepl("t4", l.names)]
-
-
-
-# For each time point:-------
+# 3) Sets of DEGs -------
 #Set A (HHQ+EhV)|Exp: HHQ_inf|Cntl: DMSO_inf
 #Set C (HHQ)|Exp: HHQ_cntl|Cntl: DMSO_cntl
 #Set B|shared between A and C
@@ -205,16 +161,30 @@ l.t4names <- l.names[grepl("t4", l.names)]
 #which(unlist(lapply(lapply(res, function(x) x |> group_by(contrast) |> summarise(bh = sum(padjBH <=0.05, na.rm = T), ihw = sum(padjIHW<=0.05, na.rm = T))), function(y) y$ihw < y$bh)))
 
 
+
 res2 <- lapply(res, function(x) {
-  x |> mutate(Ranking = ifelse(log2FoldChange < 0, -1, 
+  x |> 
+    mutate(Ranking = ifelse(log2FoldChange < 0, -1, 
                             ifelse(log2FoldChange >0, 1, 0))*-log10(pvalueRaw), .after = locus_tag) |> 
-    mutate(DE = padjIHW < 0.05 & abs(log2FCshrink_ashr)>=2, .after = Ranking) |>
+    mutate(DE = padjIHW <= padj & abs(log2FCshrink_ashr)>=lfc, .after = Ranking) |>
     group_by(locus_tag) |>
     dplyr::slice(1) |>
     #dplyr::select(DE, DIR, Ranking, everything()) |> 
-    dplyr::select(locus_tag:stat) |>
-    arrange(desc(Ranking))
+    arrange(desc(Ranking)) |>
+    dplyr::select(locus_tag:stat) 
 })
+
+
+
+# separate time points
+l.names<-l.namesD
+remove(l.namesD)
+l.t1names <- l.names[grepl("t1", l.names)]
+l.t2names <- l.names[grepl("t2", l.names)]
+l.t3names <- l.names[grepl("t3", l.names)]
+l.t4names <- l.names[grepl("t4", l.names)]
+
+
 
 res2t1 <- res2[l.t1names]
 res2t2 <- res2[l.t2names]
@@ -250,7 +220,7 @@ MyUpsetPlot(
   main = "45 min",
   file = paste0(res_path, "figs/timePt1upsetDeseqDISTINCT.png")
 )
- MyUpsetPlot(
+MyUpsetPlot(
    x = res2t1,
    mode = "intersect",
    main = "45 min, INTERSECT",

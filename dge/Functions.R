@@ -11,7 +11,7 @@ NAColOmit<-function(x = NULL){
   rem_these <- names(which(apply(x, 2, function(x) sum(is.na(x)) == n1)))
   paste0("removed cols: ", paste0(rem_these, collapse = ", "))
   
-  x |> dplyr::select(-rem_these)
+  x |> dplyr::select(-all_of(rem_these))
 }
 
 

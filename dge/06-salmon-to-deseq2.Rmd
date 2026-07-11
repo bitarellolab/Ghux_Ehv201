@@ -50,8 +50,8 @@ setwd(base_path)
 ## Select subset of genes to look at. 
 
 ## Options: 
-#subs <- "virus"; sampSet <- "39samp" #
-subs <- "virus"; sampSet <- "29samp"  # 
+subs <- "virus"; sampSet <- "39samp" #
+#subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
@@ -331,7 +331,7 @@ salmon_gene_quants_filt <-
 salmon_gene_quants_filt <- left_join(salmon_gene_quants_filt, tib)
 
 write_tsv(salmon_gene_quants, file=paste0(res_path, "tables/salmon-output-processed-filt", ext, ".tsv"))
-system(glue::glue("gzip {res_path}tables/salmon-output-processed-filt{ext}.tsv"))
+system(glue::glue("gzip -f {res_path}tables/salmon-output-processed-filt{ext}.tsv"))
 
 #salmon_gene_quants_filt <- data.table::fread(paste0(res_path, #"salmon_gene_quants_filt", ext, ".gz")) |> as_tibble()
 
@@ -599,8 +599,8 @@ gc()
 if(TRUE){
 ## Proportion of genes to use in each case ----
 if(subs == 'virus'){
-ntop <- nrow(dds) 
 nprop <-0.95
+ntop <- round(nrow(dds)*nprop)
 }else{
 nprop<-0.50
 ntop <-round(nprop*nrow(dds))
@@ -1295,7 +1295,7 @@ test<-lapply(glm_subset, function(x){
 test2<-lapply(glm_subset, function(x){
  j<-x$contrast[1]
  message("Contrast:", j)
- x |> dplyr::filter(padjIHW <= 0.05) |> dplyr::filter(abs(log2FCshrink_ashr)>=2) |> group_by(DIR) |> arrange(padjIHW, by_group=T) |> write_tsv(file = paste0(res_path, "tables/deseq-DEGs-",j, ext, ".tsv"))
+ x |> dplyr::filter(padjIHW < 0.05) |> dplyr::filter(abs(log2FCshrink_ashr)>=2) |> group_by(DIR) |> arrange(padjIHW, by_group=T) |> write_tsv(file = paste0(res_path, "tables/deseq-DEGs-",j, ext, ".tsv"))
   gc()
   system(glue::glue("gzip -f {res_path}tables/deseq-DEGs-{j}{ext}.tsv"))
 })

@@ -16,13 +16,13 @@
 bioconductor_pks<-c(
   "SummarizedExperiment",
   "DESeq2",
-  "tximeta",
+  #"tximeta",
   "tximport",
   "PCAtools",
 #  "DEGreport",
   "sjmisc",
   "ashr",
- # "fgsea",
+  "fgsea",
   "edgeR",
   "vsn",
   "BiocParallel",
@@ -30,10 +30,11 @@ bioconductor_pks<-c(
   "genefilter",
   "ComplexHeatmap",
   "IHW",
-  "WGCNA"
+  "WGCNA",
+  "AnnotationHub"
 )
+# run once:
 BiocManager::install(bioconductor_pks)
-###
 
 ## if not installing any packages then update existing with ----
 #BiocManager::install(ask = F)
@@ -45,14 +46,16 @@ other_packages <-c(
   "data.table",
   "lubridate",
   "openxlsx",
-  #"Seurat",
+  "xlsx",
   "conflicted",
+  "gprofiler2",
+  "patchwork",
   "renv"
 )
 library(pacman)
 p_path
 pacman::p_load(char=other_packages, install = F)
-####
+
 
   #register(MulticoreParam(4))
   # conflicted::conflicts_prefer(dplyr::filter)
@@ -64,8 +67,9 @@ pacman::p_load(char=other_packages, install = F)
   # conflicts_prefer(MatrixGenerics::rowVarDiffs)
   # conflicts_prefer(stats::cor)
   # conflicts_prefer(pheatmap::pheatmap)
-  #conflicts_prefer(genefilter::rowVars)
+  # conflicts_prefer(genefilter::rowVars)
 
 
-#Now activate renv
+# Now activate renv (run once)
+#renv::activate()
 
