@@ -117,7 +117,8 @@ table(grepl("^JF", keep_these))
 keep_these_vir <- keep_these[grepl("^JF", keep_these)]
 keep_these_host <- keep_these[!(grepl("^JF", keep_these))]
 length(keep_these_host) #37334 (host genes)
-
+saveRDS(keep_these_host,"data/Annotations-host/keep_these_host.rds")
+saveRDS(keep_these_vir,"data/Annotations-virus/keep_these_virus.rds")
 annot_host <- annot_host |> dplyr::filter(tx_id %in% keep_these_host)
 nrow(annot_host) # 37334
 table(keep_these_host %in% annot_host$tx_id)
@@ -367,7 +368,7 @@ annot_host2 <-
   `Gene Names`,
   description,
   contains("GO"),
-  KEGG,
+  contains("KEGG"),
   everything()
 ))
 
@@ -528,9 +529,38 @@ apply(annot_host4,2, function(x)
 annot_host4 |> 
   filter(is.na(Uniprot)) |> 
   group_by(biotype) |> 
-  tally() |> 
-  arrange(desc(n)) #ok now all proteins have uniprot info
+  tally(sort = T) #ok now all proteins have uniprot info
+annot_host4 |> 
+  filter(is.na(UniParc)) |> 
+  group_by(biotype) |> 
+  tally(sort = T)
+annot_host4 |>filter(is.na(UniParc) & biotype=="protein_coding") |> select(tx_id, locus_tag, contains("GO"), everything())
+#let's update these 3 manually:
+annot_host4<-annot_host4 |> 
+  mutate(UniParc = ifelse(tx_id == "EOD23984", "UPI00032D4082", UniParc)) |>
+  mutate(Length = ifelse(tx_id == "EOD23984", 176, Length)) |>
+  mutate(description = ifelse(tx_id == "EOD23984", "Agenet domain-containing protein", description)) |>
+   mutate(KEGG = ifelse(tx_id == "EOD23984", "ehx:EMIHUDRAFT_354571;ehx:EMIHUDRAFT_370944;ehx:EMIHUDRAFT_371093", description))
 
+annot_host4<-annot_host4 |> 
+  mutate(UniParc = ifelse(tx_id == "EOD33031", "UPI00032C16AB", UniParc)) |> 
+  mutate(Length = ifelse(tx_id == "EOD33031", 142, Length)) |>
+  mutate(GO_CC = ifelse(tx_id == "EOD33031", "AP-2 adaptor complex [GO:0030122]", GO_CC)) |>
+  mutate(GO_MF = ifelse(tx_id == "EOD33031", "clathrin-cargo adaptor activity [GO:0035615]", GO_MF)) |>
+  mutate(GO_BP = ifelse(tx_id == "EOD33031", "clathrin-dependent endocytosis [GO:0072583];intracellular protein transport [GO:0006886]", GO_BP)) |>
+  mutate(GO_IDs = ifelse(tx_id == "EOD33031", "GO:0035615;GO:0030122;GO:0072583;GO:0006886", GO_IDs))
+
+
+annot_host4<-annot_host4 |> 
+  mutate(UniParc = ifelse(tx_id == "EOD30917", "UPI00032C439C", UniParc)) |>
+  mutate(Length = ifelse(tx_id == "EOD30917", 673, Length)) |>
+  mutate(GO_BP = ifelse(tx_id == "EOD30917", "sodium ion transmembrane transport [GO:0035725]", GO_BP)) |>
+   mutate(GO_CC = ifelse(tx_id == "EOD30917", "plasma membrane [GO:0005886]", GO_CC)) |>
+  mutate(GO_MF = ifelse(tx_id == "EOD30917", "symporter activity [GO:0015293]", GO_MF)) |>
+  mutate(GO_IDs = ifelse(tx_id == "EOD30917","GO:0035725;GO:0005886;GO:0015293"), GO_IDs) |>
+  mutate(description = ifelse(tx_id == "EOD30917", "transporter", description))
+  
+                            
 #create gene annotation column rowLabel that will be symbol where unambiguous or ensID
 
 annot_host4 <- annot_host4 |> 
@@ -552,8 +582,10 @@ annot_host |>
 #2 TRUE                 36416
 
 annot_host<-isGOannot(annot_host) #good so far
-
-annot_harriet<-fread(paste0(base.path, "data/Annotations-host/harriet_emihu1_target_protein_annotations.tsv"),  fill=TRUE,na.strings = c("NA", '-'), sep = "\t", sep2 = ",") |> 
+annot_host |> group_by(GOAnnotAvail) |> tally()
+#1 FALSE        19536
+#2 TRUE         17798
+annot_harriet<-fread(paste0(base.path, "data/Annotations-host/harriet_emihu1_target_protein_annotations.tsv.gz"),  fill=TRUE,na.strings = c("NA", '-'), sep = "\t", sep2 = ",") |> 
   mutate(emihu1_protein=as.character(emihu1_protein))
 dim(annot_harriet)
 colnames(annot_harriet)
@@ -596,7 +628,7 @@ annot_host_ext <- test |>
 annot_host_ext<-annot_host_ext |> mutate(origin = "host")
 
 write_tsv(annot_host_ext, file = paste0(base.path, "data/Annotations-host/annot-host-ext-", lubridate::today(),".tsv"))
-
+system(paste0("gzip -f data/Annotations-host/annot-host-ext-",lubridate::today(), ".tsv"))
 # a version for salmon-to-deseq
 annot<-annot_host_ext
 
@@ -640,7 +672,7 @@ nrow(annot) == length(unique(annot$rowLabel))
 nrow(annot) == length(unique(annot$tx_id))
 gc()
 ## write file
-saveRDS(annot, paste0(base.path, "data/Annotations-host/annot-",lubridate::today(), ".rds"))
+saveRDS(annot, paste0(base.path, "data/Annotations-host/annot-host-",lubridate::today(), ".rds"))
 
 # all good up to here
 ```
@@ -727,40 +759,72 @@ annot_host2<-annot_host2 |> dplyr::select(tx_id, locus_tag, tx_name, protein_id,
 annot_host2<-annot_host2 |> dplyr::rename(JGIDB = emihu1_protein)
 
 #fix missing ENA accession for genes with more than 1 transcript
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD09865", "KB868610", ENA_accession))
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD09864", "KB868610", ENA_accession))
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD33031", "KB864457", ENA_accession))
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD33030", "KB864457", ENA_accession))
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD33288", "KB864456", ENA_accession))
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD33289", "KB864456", ENA_accession))
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD10730", "KB868310", ENA_accession))
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD10729", "KB868310", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD36455", "KB864166", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD36454", "KB864166", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD14723", "KB867194", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD14724", "KB867194", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD31962", "KB864558", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD31963", "KB864558", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD31964", "KB864558", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD40771", "KB863201", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD40772", "KB863201", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="EOD29652", "KB864807", ENA_accession)) 
-annot<-annot |> mutate(ENA_accession = ifelse(tx_id=="	EOD29653", "KB864807", ENA_accession)) 
+annot_host2 |> filter(is.na(ENA_accession))
+#1
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD09865", "KB868610", ENA_accession))
+#2
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD09864", "KB868610", ENA_accession))
+#3
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD33031", "KB864457", ENA_accession))
+#4
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD33030", "KB864457", ENA_accession))
+#5
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD33288", "KB864456", ENA_accession))
+#6
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD33289", "KB864456", ENA_accession))
+#7
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD10730", "KB868310", ENA_accession))
+#8
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD10729", "KB868310", ENA_accession)) 
+#9
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD36455", "KB864166", ENA_accession)) 
+#10
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD36454", "KB864166", ENA_accession)) 
+#11
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD14723", "KB867194", ENA_accession)) 
+#12
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD14724", "KB867194", ENA_accession)) 
+#13
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD31962", "KB864558", ENA_accession)) 
+#14
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD31963", "KB864558", ENA_accession)) 
+#15
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD31964", "KB864558", ENA_accession)) 
+#16
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD40771", "KB863201", ENA_accession)) 
+#17
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD40772", "KB863201", ENA_accession)) 
+#18
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="EOD29652", "KB864807", ENA_accession)) 
+#19
+annot_host2<-annot_host2 |> mutate(ENA_accession = ifelse(tx_id=="	EOD29653", "KB864807", ENA_accession))
+sort(apply(annot_host2, 2, function(x) allNAs(x)))
+annot_host2 |> filter(is.na(Uniprot)) |> group_by(biotype) |> tally(sort=T) #all good
+
+# fix missing uniparc
+annot_host2 |> filter(is.na(UniParc)) |> filter(biotype=="protein-coding") 
+
+
+annot_host2<-annot_host2 |> mutate(UniParc = ifelse(tx_id =="EOD30917","UPI00032C439C", UniParc))
+annot_host2<-annot_host2 |> 
+  mutate(UniParc = ifelse(tx_id =="EOD30917","UPI00032C439C", UniParc)) |> mutate(Length = ifelse(tx_id =="EOD30917", 673, Length)) |>
+  mutate(GO_BP=ifelse(tx_id =="EOD30917", "sodium ion transmembrane transport", GO_BP)) |> mutate(GO_CC = ifelse(tx_id =="EOD30917", "plasma membrane", GO_CC)) |> mutate(GO_MF = ifelse(tx_id =="EOD30917", "symporter activity", GO_MF)) |> mutate(GO_IDs=ifelse(tx_id =="EOD30917", "GO:0015293;GO:0035725;GO:0005886", GO_IDs))
+
+annot_host2 |> filter(is.na(UniParc)) |> filter(biotype=="protein-coding")  #clear
+
+annot_host2<-isGOannot(annot_host2)
 saveRDS(annot_host2,paste0(base.path,"data/Annotations-host/annot-host-ext2-", lubridate::today(),".rds"))
 
 write_tsv(annot_host2,paste0(base.path, "data/Annotations-host/tx-to-gene-host-", lubridate::today(),".tsv"))
-system(paste0("gzip -f data/Annotations-host/annot-host-ext2-",lubridate::today(), ".tsv"))
-#I'm here (Jun 28, 2026). All good up to here.
+system(paste0("gzip -f data/Annotations-host/tx-to-gene-host-",lubridate::today(), ".tsv"))
+# All good up to here (2026)
 
-#temp<-as.data.frame(host_ena);
-#openxlsx::addWorksheet(wb, sheetName = "ena")
-#openxlsx::writeData(wb, sheet = "ena", temp)
-#remove(temp);gc();getsizes()
 ```
 
-## Old: Host NCBI
+# Obsolete
 
-```{r, host-ncb}
+```{r, host-ncb, eval = F, echo = F}
+Old: Host NCBI
 #ok for now
 ## From: https://www.ncbi.nlm.nih.gov/datasets/gene/GCF_000372725.1/
 ncbi_annot<-read_tsv(paste0(base.path,                                "data/Annotations-host/ncbi_dataset_host2.tsv"))|>
@@ -868,7 +932,7 @@ getsizes()
 
 ## Combine ENA+NCBI+GFF
 
-```{r combine3}
+```{r combine3, eval = F, echo = F}
 ## combine with ncbi_host
 #remove(part1)
 part1<-left_join(annot_host2 |> dplyr::filter(UniqueLocusTag==T), ncbi_annot)
@@ -972,7 +1036,7 @@ apply(annot_host4 |> filter(biotype != "protein_coding")
 
 
 
-# Host UNIPROT
+## Host UNIPROT
 
 ```{r, host-uniprot}
 
@@ -1765,7 +1829,7 @@ saveRDS(ncrna_host, file = paste0(base.path, "data/ncrna_host.rds"))
 }
 ```
 
-# Host BIOMART (not using currently)
+## Host BIOMART (not using currently)
 
 ```{r, annot-host-alt, echo = T, eval = F, include = F}
 #Alternative annotation (optional)
@@ -1926,7 +1990,7 @@ if(all.equal(sort(unique(annot_host$gene_id)), sort(annot_host_alt$ensembl_gene_
 #  read_tsv(col_names = T, col_types = cols())
 ```
 
-# Host (optional, using currently)
+## Host (optional, using currently)
 
 ```{r, annot-host-alt2}
 
@@ -2020,8 +2084,8 @@ write_tsv(annot_host_ext, file = paste0(base.path, "data/annot_host_ext.tsv"))
 ```
 
 
-# Host (using API)
-```{r, host-go}
+## Host (using API)
+```{r, host-go, echo = F, eval = F}
 # GO annotations and other functional annotation?
 #https://www.maimengkong.com/m/?post=1061
 #-----Get GOs ----
@@ -2177,7 +2241,7 @@ fetchIDs3<-readRDS(file = paste0(base.path, "data/Annotations-host/prottifetchID
 
 
 ## Clean up
-```{r cleanup-protti}
+```{r cleanup-protti, eval =F, echo = F}
 ### Now let's clean this up
 
 
