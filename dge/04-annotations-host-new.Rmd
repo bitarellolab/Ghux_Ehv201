@@ -520,7 +520,8 @@ temp3<-lapply(temp2, function(x){
 }else{
   x$UniParc<-NA
 }})
-annot_host4[is.na(annot_host4$UniParc) & annot_host4$biotype=="protein_coding",]$UniParc<-unlist(temp3)
+annot_host4[is.na(annot_host4$UniParc) & annot_host4$biotype=="protein_coding",]$UniParc<-unlist(temp3) #done!
+#remove unnecessary columns
 annot_host4<-annot_host4 |> select(-c("Date of last sequence modification", "index"))
 
 apply(annot_host4,2, function(x)
@@ -533,8 +534,8 @@ annot_host4 |>
 annot_host4 |> 
   filter(is.na(UniParc)) |> 
   group_by(biotype) |> 
-  tally(sort = T)
-annot_host4 |>filter(is.na(UniParc) & biotype=="protein_coding") |> select(tx_id, locus_tag, contains("GO"), everything())
+  tally(sort = T) |> filter(biotype=="protein_coding")
+annot_host4 |> filter(is.na(UniParc) & biotype=="protein_coding") |> select(tx_id, locus_tag, contains("GO"), everything())
 #let's update these 3 manually:
 annot_host4<-annot_host4 |> 
   mutate(UniParc = ifelse(tx_id == "EOD23984", "UPI00032D4082", UniParc)) |>
@@ -557,7 +558,7 @@ annot_host4<-annot_host4 |>
   mutate(GO_BP = ifelse(tx_id == "EOD30917", "sodium ion transmembrane transport [GO:0035725]", GO_BP)) |>
    mutate(GO_CC = ifelse(tx_id == "EOD30917", "plasma membrane [GO:0005886]", GO_CC)) |>
   mutate(GO_MF = ifelse(tx_id == "EOD30917", "symporter activity [GO:0015293]", GO_MF)) |>
-  mutate(GO_IDs = ifelse(tx_id == "EOD30917","GO:0035725;GO:0005886;GO:0015293"), GO_IDs) |>
+  mutate(GO_IDs = ifelse(tx_id == "EOD30917","GO:0035725;GO:0005886;GO:0015293", GO_IDs)) |>
   mutate(description = ifelse(tx_id == "EOD30917", "transporter", description))
   
                             
@@ -583,8 +584,8 @@ annot_host |>
 
 annot_host<-isGOannot(annot_host) #good so far
 annot_host |> group_by(GOAnnotAvail) |> tally()
-#1 FALSE        19536
-#2 TRUE         17798
+#1 FALSE        19535
+#2 TRUE         17799
 annot_harriet<-fread(paste0(base.path, "data/Annotations-host/harriet_emihu1_target_protein_annotations.tsv.gz"),  fill=TRUE,na.strings = c("NA", '-'), sep = "\t", sep2 = ",") |> 
   mutate(emihu1_protein=as.character(emihu1_protein))
 dim(annot_harriet)
@@ -618,7 +619,7 @@ test<-test |> mutate(rowLabel =
               .after = "gene_symbol")
 
 # change biotype to pseudogene based on harriet's annotation:
-test |> group_by(biotype) |> tally() |> arrange(desc(n)) |> as.data.frame()
+test |> group_by(biotype) |> tally(sort=T) |> as.data.frame()
 
 test<-test |> 
   mutate(biotype = case_when(grepl("GEP_P", orthogroup)==T ~ "pseudogene", grepl("GEP_P", orthogroup)==F ~ biotype)) |> arrange(biotype)
@@ -626,7 +627,7 @@ test<-test |>
 annot_host_ext <- test |> 
   dplyr::select(rowLabel, gene_symbol, locus_tag, tx_id, description, description2, biotype, everything()) 
 annot_host_ext<-annot_host_ext |> mutate(origin = "host")
-
+annot_host_ext |>  group_by(biotype) |> tally(sort=T) |> as.data.frame()
 write_tsv(annot_host_ext, file = paste0(base.path, "data/Annotations-host/annot-host-ext-", lubridate::today(),".tsv"))
 system(paste0("gzip -f data/Annotations-host/annot-host-ext-",lubridate::today(), ".tsv"))
 # a version for salmon-to-deseq
@@ -656,6 +657,8 @@ for(g in dup_annot2){
 #check
 annot |> group_by(locus_tag) |> tally() |> filter(n>1)
 annot |> group_by(rowLabel) |> tally() |> filter(n>1)
+#this one is unadultered and will be use for rna-seq tx-to-gene:
+annot |> group_by(ensembl_gene_id) |> tally() |> filter(n>1)
 ## long rowLabels
 
 (longLab<- annot |> 
@@ -672,7 +675,9 @@ nrow(annot) == length(unique(annot$rowLabel))
 nrow(annot) == length(unique(annot$tx_id))
 gc()
 ## write file
-saveRDS(annot, paste0(base.path, "data/Annotations-host/annot-host-",lubridate::today(), ".rds"))
+saveRDS(annot, paste0(base.path, "data/Annotations-host/annot-host-ext",lubridate::today(), ".rds"))
+write_tsv(annot, file = paste0(base.path, "data/Annotations-host/annot-host-ext-", lubridate::today(),".tsv"))
+system(paste0("gzip -f data/Annotations-host/annot-host-ext-",lubridate::today(), ".tsv"))
 
 # all good up to here
 ```
@@ -802,22 +807,25 @@ sort(apply(annot_host2, 2, function(x) allNAs(x)))
 annot_host2 |> filter(is.na(Uniprot)) |> group_by(biotype) |> tally(sort=T) #all good
 
 # fix missing uniparc
-annot_host2 |> filter(is.na(UniParc)) |> filter(biotype=="protein-coding") 
+annot_host2 |> filter(is.na(UniParc)) |> filter(biotype=="protein-coding") # should be zero
 
-
-annot_host2<-annot_host2 |> mutate(UniParc = ifelse(tx_id =="EOD30917","UPI00032C439C", UniParc))
-annot_host2<-annot_host2 |> 
-  mutate(UniParc = ifelse(tx_id =="EOD30917","UPI00032C439C", UniParc)) |> mutate(Length = ifelse(tx_id =="EOD30917", 673, Length)) |>
-  mutate(GO_BP=ifelse(tx_id =="EOD30917", "sodium ion transmembrane transport", GO_BP)) |> mutate(GO_CC = ifelse(tx_id =="EOD30917", "plasma membrane", GO_CC)) |> mutate(GO_MF = ifelse(tx_id =="EOD30917", "symporter activity", GO_MF)) |> mutate(GO_IDs=ifelse(tx_id =="EOD30917", "GO:0015293;GO:0035725;GO:0005886", GO_IDs))
-
-annot_host2 |> filter(is.na(UniParc)) |> filter(biotype=="protein-coding")  #clear
 
 annot_host2<-isGOannot(annot_host2)
+annot_host2 |> 
+  group_by(GOAnnotAvail) |> 
+  tally()
+#1 FALSE        19535
+#2 TRUE         17799
 saveRDS(annot_host2,paste0(base.path,"data/Annotations-host/annot-host-ext2-", lubridate::today(),".rds"))
 
 write_tsv(annot_host2,paste0(base.path, "data/Annotations-host/tx-to-gene-host-", lubridate::today(),".tsv"))
 system(paste0("gzip -f data/Annotations-host/tx-to-gene-host-",lubridate::today(), ".tsv"))
 # All good up to here (2026)
+
+sessionInfo()
+ sessionInfo() %>%
+   capture.output() %>%
+   writeLines(paste0("logs/annotation-host.txt"))
 
 ```
 
@@ -1038,7 +1046,7 @@ apply(annot_host4 |> filter(biotype != "protein_coding")
 
 ## Host UNIPROT
 
-```{r, host-uniprot}
+```{r, host-uniprot, eval = F, echo = F}
 
 ## Uniprot 1---
 #from link:
@@ -1831,7 +1839,7 @@ saveRDS(ncrna_host, file = paste0(base.path, "data/ncrna_host.rds"))
 
 ## Host BIOMART (not using currently)
 
-```{r, annot-host-alt, echo = T, eval = F, include = F}
+```{r, annot-host-alt, echo = F, eval = F, include = F}
 #Alternative annotation (optional)
 #Can run and use the combined annotation or just the ones produced above.
 #This is how Upenn got annotations for the host. Main issue is ensembl doesn't have the virus
@@ -1990,9 +1998,9 @@ if(all.equal(sort(unique(annot_host$gene_id)), sort(annot_host_alt$ensembl_gene_
 #  read_tsv(col_names = T, col_types = cols())
 ```
 
-## Host (optional, using currently)
+## Host (optional)
 
-```{r, annot-host-alt2}
+```{r, annot-host-alt2, eval = F, echo = F}
 
 ## from the polara paper:
 

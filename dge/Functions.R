@@ -14,6 +14,18 @@ NAColOmit<-function(x = NULL){
   x |> dplyr::select(-all_of(rem_these))
 }
 
+NAPerRow<-function(x = NULL){
+  #x is a tibble/data.frame/data.table
+  require(tidyverse)
+  x<- as_tibble(x)
+  n1 <- nrow(x)
+  j1 <- ncol(x)
+  #rem_these <- names(which(apply(x, 2, function(x) sum(is.na(x)) == n1)))
+  totalNAs<-apply(x, 1, function(x) sum(is.na(x)))
+  x |> dplyr::mutate(TotalNAs = totalNAs)
+}
+# for dplyr
+allNAs<-function(x){sum(is.na(x))}
 
 ## meanSDPlot (modified):
 # modified from this version https://gist.github.com/mikelove/0a3c19a8512fb36453078df48f20d283

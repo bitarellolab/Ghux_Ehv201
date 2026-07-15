@@ -58,7 +58,7 @@ setwd(base_path)
 subs <- "host";  sampSet <- "76samp" #
 #subs <- "host";  sampSet <- "79samp" #
 res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
-(ext <- paste0("_", sampSet,"_", subs))
+(ext <- paste0("-", sampSet,"-", subs))
 
 
 if(subs == 'virus'){
@@ -114,7 +114,7 @@ saveRDS(annot, paste0(base_path, "data/Annotations-virus/annot-virus-edgeR.rds")
  annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds")
  }
 }else if(subs == "host"){
-annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
+annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-07-11.rds"))
 annot<-annot |> distinct()
 
 #check if empty
@@ -130,21 +130,6 @@ annot<-annot |> distinct()
     filter(n>1) |> 
     pull(rowLabel))
 }
-##Ignore:
-#annot <- annot |> 
-#  mutate(rowLabel =
-#  case_when(
-#  is.na(Symbol) == F ~ Symbol,
-#  is.na(Symbol) == T ~ locus_tag),
-#         .after = "Symbol")
-#check
-#annot |> 
-#  group_by(locus_tag) |> 
-#  summarise(N=length(unique(rowLabel))) |>
-#  filter(N>1)
-
-#saveRDS(annot, file = paste0(base_path, "data/Annotations-", subs, "/annot-", subs, "-edgeR.rds"))
-#}
 
 ```
 
@@ -162,7 +147,7 @@ library(edgeR)
 ## Make table for tximport: transcript to Gene map: https://bioconductor.org/packages/devel/bioc/vignettes/tximport/inst/doc/tximport.html#edgeR
 if(subs == 'host'){
 tx_to_gene <- annot |> 
-  dplyr::select(tx_id, locus_tag, rowLabel,tx_name, NrTranscripts)
+  dplyr::select(tx_id, ensembl_gene_id, locus_tag, rowLabel, tx_name, NrTranscripts,everything())
 }else{
 tx_to_gene <- annot |> 
   dplyr::select(tx_id, locus_tag, rowLabel, everything())
@@ -314,23 +299,28 @@ metadata$trt_vir<-coldata$trt_vir
 metadata$timePt <- coldata$timePt
 
 if(subs == 'virus'){
-ntop <- nrow(cpm_log) 
-nprop <-0.90
+nprop <-0.95
 }else{
 nprop<-0.50
-ntop <-round(nprop*nrow(cpm_log))
 }
+ntop <- round(nprop*nrow(cpm_log))
 p <- PCAtools::pca(
             mat = cpm_log,
             metadata = metadata,
             removeVar = 1-nprop) # 
 
+
 rownames(p$loadings) <- as_tibble(rownames(p$loadings)) |>
-  setNames("locus_tag") |>
-  left_join(annot) |>
+  setNames("ensembl_gene_id") |>
+  left_join(tx_to_gene, multiple="first") |>
   dplyr::select(c("rowLabel")) |>
-  unique() |>
   deframe() 
+#rownames(p$loadings) <- #as_tibble(rownames(p$loadings)) |>
+#  setNames("ensembl_gene_id") |>
+#  left_join(annot) |>
+#  dplyr::select(c("rowLabel")) |>
+#  unique() |>
+#  deframe() 
 pdf(paste0(
   res_path, "figs/edgeR_PCAbiplots_condition",
   ext,
@@ -476,8 +466,12 @@ scale_fill_manual(values = trt_vir_cols) +
 
 ggsave(paste0(res_path, "figs/edgeR_pseudocounts_violin_AftFilt", ext, ".pdf"), device = cairo_pdf, width = 10)  
 }
+#for publication:
+if(sampSet %in% c("76samp", "39samp", "29samp")){
+ggsave(paste0("publication/edgeR_pseudocounts_violin_AftFilt", ext, ".svg"),width = 10)  
 
-
+saveRDS(pseudoCounts, file = paste0(res_path, "edgeR-pseudocounts-AftFilt", ext, ".rds"))
+}
 
 # Heatmaps & PCAs ----
 remove(cpm_log)
@@ -521,11 +515,12 @@ p <- PCAtools::pca(
             removeVar = 1-nprop) # 
 
 rownames(p$loadings) <- as_tibble(rownames(p$loadings)) |>
-  setNames("locus_tag") |>
-  left_join(annot) |>
+  setNames("ensembl_gene_id") |>
+  left_join(tx_to_gene, multiple="first") |>
   dplyr::select(c("rowLabel")) |>
-  unique() |>
   deframe() 
+
+
 pdf(paste0(
   res_path, "figs/edgeR_PCAbiplots_condition",
   ext,
@@ -667,12 +662,12 @@ qlf_all<-qlf_all |>
     left_join(distinct(tx_to_gene, locus_tag, rowLabel), by = "locus_tag") 
 
 qlf_all <- qlf_all |>
-    select(group1, group2, contrast, locus_tag, rowLabel, everything())
+    select(group1, group2, contrast, locus_tag, everything())
 
 qlf_all <- qlf_all |> 
   mutate(DIR = ifelse(logFC >0, "UP", ifelse(logFC < 0, "DOWN", NA)))
    
-#qlf_all<-qlf_all |> filter(contrast %in% conts_of_interest)
+qlf_all<-qlf_all |> filter(contrast %in% conts_of_interest)
 #qlf_all<-na.omit(qlf_all)
 write_tsv(qlf_all, paste0(res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv"))
 }else{
@@ -896,6 +891,14 @@ dev.off()
 # Write tables
 
 ```{r, write-excel}
+#genes with padj<0.05
+#qlf_all |> group_by(contrast) |> tally(sort=T)
+
+#conts<-unique(qlf_all$contrast)
+
+
+
+
 
 ## GLM
 # create workbook to accumulate worsheets

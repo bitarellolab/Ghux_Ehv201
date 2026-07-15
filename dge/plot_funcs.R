@@ -19,6 +19,7 @@ suppressPackageStartupMessages({
   library(ComplexHeatmap)
   library(gt)
   library(svglite)
+  library(gdtools)
 })
 # Fonts ----
 #extrafont::font_import(prompt = F)

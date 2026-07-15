@@ -50,15 +50,15 @@ setwd(base_path)
 ## Select subset of genes to look at. 
 
 ## Options: 
-subs <- "virus"; sampSet <- "39samp" #
+#subs <- "virus"; sampSet <- "39samp" #
 #subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
-#subs <- "host";  sampSet <- "76samp" #
+subs <- "host";  sampSet <- "76samp" #
 #subs <- "host";  sampSet <- "79samp" #
 
 res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
-(ext <- paste0("_", sampSet,"_", subs))
+(ext <- paste0("-", sampSet,"-", subs))
 
 trt_vir_cols<-c(paired_cols[1:2], paired_cols[7:8])
 
@@ -195,15 +195,15 @@ salmon_df <-
   map_df(read_tsv, .id = "sample_name", col_types = cols())
 
 salmon_df |> 
-  write_tsv(paste0(res_path, "tables/salmon-output-", sampSet, ".tsv"))
- system(glue::glue("gzip -f {res_path}tables/salmon-output-{sampSet}.tsv"))
+  write_tsv(paste0(res_path, "tables/salmon-output", ext , ".tsv"))
+ system(glue::glue("gzip -f {res_path}tables/salmon-output{ext}.tsv"))
 }else{
-salmon_df<-read_tsv(paste0(res_path, "tables/salmon-output-", sampSet, ".tsv.gz"))  
+salmon_df<-read_tsv(paste0(res_path, "tables/salmon-output", ext, ".tsv.gz"))  
 }
 # Read in annotation data ----
 
 if(subs=='host'){
-annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-06-28.rds"))
+annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-07-11.rds"))
 annot<-annot |> distinct()
 
 #check if empty
@@ -231,8 +231,13 @@ annot<-annot |> distinct()
 
 ## Make table for tximport: transcript to Gene map
 if(subs == 'host'){
+# test 
 tx_to_gene <- annot |> 
-  dplyr::select(tx_id, locus_tag, rowLabel, tx_name, NrTranscripts,everything())
+  dplyr::select(tx_id, ensembl_gene_id,rowLabel, tx_name, NrTranscripts,everything())
+dup_annot <- tx_to_gene |> group_by(ensembl_gene_id) |> tally() |> filter(n>1) |> pull(ensembl_gene_id)
+#tx_to_gene <- annot |> 
+#  dplyr::select(tx_id, locus_tag,rowLabel, tx_name, NrTranscripts,everything())
+
 remove(annot)
 gc()
 }else{
@@ -270,14 +275,16 @@ gc()
 ## Import tx
 
 ## Import expression data
-
+#test
 txi <- readRDS(file = paste0(res_path, "txi", ext,  ".rds"))
 nrow(txi$counts)
 
-if(TRUE){ #run once and figure this out. Then set to false
+if(TRUE){#run once then set to false
 ## Make deseq matrix 
 ddsTxi <- DESeq2::DESeqDataSetFromTximport(
   txi = txi, colData = coldata, design = ~ batch + condition)
+
+#if(FALSE){ #run once and figure this out. Then set to false
 
 ## Check for nr genes with very low counts
 rcounts<-counts(ddsTxi, normalized = F)
@@ -300,25 +307,23 @@ pcts_raw<-ggplot(df, aes(x=mean_counts,y=var_counts)) +
   bb_theme()
 pcts_raw
 ggsave(paste0(res_path, "figs/VarByMeanCounts", ext, ".pdf"), device = cairo_pdf)
-
+#}
 ## Custom filtering
 ## http://127.0.0.1:14873/library/rnaseqGene/doc/rnaseqGene.html#pre-filtering-the-dataset
-keep<-readRDS(paste0(res_path, "edgeR_keep", ext, ".rds"))
+keep<-readRDS(paste0(res_path, "edgeR-keep", ext, ".rds"))
 sum(keep)
 genes_keep_final<-rownames(txi$counts)[keep]
 rcounts<-rcounts[genes_keep_final,]
 ddsTxi <-ddsTxi[keep,]
 saveRDS(genes_keep_final, file = paste0(res_path, "genes_keep_final", ext, ".rds"))
+#save this object for deseq2 analyses
 saveRDS(ddsTxi, paste0(res_path, "deseq_glm_ddsTxi", ext, ".rds"))
 }else{
-## Subset original ddsTxi object
-genes_keep_final<-readRDS(paste0(res_path, "genes_keep_final", ext, ".rds"))
 ddsTxi<-readRDS(paste0(res_path, "deseq_glm_ddsTxi", ext, ".rds"))
 }
 
-#remove(genes_keep)
 gc()
-## make a filtered version of this as well ----
+## make a filtered version salmon_gene_quants ----
 tib <- tibble(sample_name = unique(salmon_gene_quants$sample_name),SplitSampleName(unique(salmon_gene_quants$sample_name)))
 
 salmon_gene_quants_filt <- 
@@ -340,8 +345,9 @@ salmon_gene_quants_filt |>
   group_by(timePt) |> 
   summarise(Total_M_Reads = round(sum(n_reads),1)) |> 
   ungroup() |> 
-  mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),7)) |>
+  mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),5)) |>
   gt() |>
+  fmt_scientific(Total_M_Reads) |>
   gtsave(paste0(res_path, "figs/MillionReadsPerTimept_AftFilt", ext, ".png"), expand = 10)
 
 salmon_gene_quants_filt |> 
@@ -350,6 +356,7 @@ salmon_gene_quants_filt |>
   ungroup() |> 
   mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),3)) |>
   gt() |>
+  fmt_scientific(Total_M_Reads) |>
   gtsave(paste0(res_path, "figs/MillionReadsPerTreatment_AftFilt", ext, ".png"), expand = 10)
 
 if(subs == "host"){
@@ -359,16 +366,18 @@ if(subs == "host"){
   ungroup() |> 
   mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),3)) |>
   gt() |>
+    fmt_scientific(Total_M_Reads) |>
   gtsave(paste0(res_path, "figs/MillionReadsPer_Vir_AftInf", ext, ".png"), expand = 10)
   
   salmon_gene_quants_filt |> 
   group_by(timePt, trt, virus) |> 
   summarise(Total_M_Reads = round(sum(n_reads),1)) |> 
   ungroup() |> 
-  mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),7)) |>
+  mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),5)) |>
     arrange(desc(Prop)) |>
   gt() |>
-    gtsave(paste0(res_path, "figs/MillionReadsPerCondition_", ext, ".png"), expand = 10)
+    fmt_scientific(Total_M_Reads) |>
+    gtsave(paste0(res_path, "figs/MillionReadsPerCondition", ext, ".png"), expand = 10)
   
 }
 
@@ -685,6 +694,7 @@ save_pheatmap_png(pheatmap3,paste0(res_path, "figs/deseq_heatmap3_PoisDistRaw", 
 
 ## Gene clustering ---------
 ## https://bioconductor.org/packages/release/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html#the-variance-stabilizing-transformation-and-the-rlog
+if(FALSE){#not very useful atm.
 library("genefilter")
 
 top50varGenesVsdB <- head(order(genefilter::rowVars(assay(vsd_blind)), decreasing = TRUE), 50)
@@ -729,6 +739,7 @@ vsdNB50_heat<-MyPheatmapClust(mat_vsdNB,
                    main = paste0("Top 50 var genes (vsd)"))
 save_pheatmap_png(vsdNB50_heat,paste0(res_path, "figs/deseq_heatmap_", "top50VarGenesVSD", ext, ".png"), width=1700)
 }
+}
 ```
 
 # PCAs
@@ -754,7 +765,7 @@ p <- PCAtools::pca(
 
 
 
-ld <- as_tibble(getLoadings(p), rownames = "#locus_tag")
+ld <- as_tibble(getLoadings(p), rownames = "#ensembl_gene_id")
 
 #write files with loadings
 for (i in 1:4) {
@@ -772,13 +783,23 @@ for (i in 1:4) {
 
 # integrate symbols where possible for gene labels
 
+# test if works with tx_to_gene using ensembl_gene_id
 rownames(p$loadings) <- as_tibble(rownames(p$loadings)) |>
-  setNames("rowLabel") |>
-  left_join(tx_to_gene) |>
+  setNames("ensembl_gene_id") |>
+  left_join(tx_to_gene, multiple="first") |>
   dplyr::select(c("rowLabel")) |>
   deframe() 
+
+
+# this works if tx_to_gene uses locus_tag
+#rownames(p$loadings) <- as_tibble(rownames(p$loadings)) |>
+#  setNames("rowLabel") |>
+#  left_join(tx_to_gene) |>
+#  dplyr::select(c("rowLabel")) |>
+#  deframe() 
 #prep for prettier PCAs
 
+if(sampSet != "39samp"){
 pca_data12<-DESeq2::plotPCA(
   vsd_blind, ntop =  ntop, 
   returnData = T, intgroup = c("trt_vir", "timePt"), pcsToUse=1:2)
@@ -787,7 +808,16 @@ pca_data12<-DESeq2::plotPCA(
 pca_data23<-DESeq2::plotPCA(
   vsd_blind, ntop =  ntop, 
   returnData = T, intgroup = c("trt_vir", "timePt"), pcsToUse=c(2,3))
+}else{
+  pca_data12<-DESeq2::plotPCA(
+  rld_blind, ntop =  ntop, 
+  returnData = T, intgroup = c("trt_vir", "timePt"), pcsToUse=1:2)
 
+
+pca_data23<-DESeq2::plotPCA(
+  rld_blind, ntop =  ntop, 
+  returnData = T, intgroup = c("trt_vir", "timePt"), pcsToUse=c(2,3))
+}
 
 #fix names of treatments and time points for plots
 percentVar12 <- round(100 * attr(pca_data12, "percentVar"))
@@ -805,7 +835,7 @@ pca_data23$timePt2<-factor(pca_data23$timePt2, levels = times, ordered = T)
 
 # SCREE plot (variation per component)
 
-pscree<-PCAtools::screeplot(p, axisLabSize = 15, titleLabSize = 18,xlabAngle = 45,colBar = okabe[9]) + bb_theme()
+pscree<-PCAtools::screeplot(p, axisLabSize = 12, titleLabSize = 18,xlabAngle = 45,colBar = okabe[9]) + bb_theme()
 pscree
 ggsave(paste0(res_path, "figs/deseq_screeplot",ext,".pdf"), device=cairo_pdf)
 
@@ -996,7 +1026,7 @@ Glimma::glimmaMDS(dds, log = T, prior.count = 2,
 # GLM
 
 
-```{r, glm, fig.width = 12, show.text = T}
+```{r glm, fig.width = 12, show.text = T}
 remove(dds)
 gc()
 # Run deseq2 GLM ----
@@ -1014,7 +1044,7 @@ dds<-ddsTxi |>
 (failed_conv<-as.data.frame(mcols(dds)) |>
   dplyr::filter(betaConv==F) %>% rownames())
 
-while(length(failed_conv)>0){
+while(length(failed_conv)>1){
   
   n1<-nrow(ddsTxi)
   drop_these<-match(failed_conv, rownames(ddsTxi))
@@ -1046,7 +1076,7 @@ gc()
 #https://support.bioconductor.org/p/9135244/
 #https://support.bioconductor.org/p/97676/
 
-if(FALSE){ #run once (optional sanity check)
+if(TRUE){ #run once (optional sanity check)
 nm <- assays(dds)[["avgTxLength"]]
 sf_deseq <- estimateSizeFactorsForMatrix(counts = counts(dds) / nm, type = sftype)
 #plot(x=colMeans(counts(ddsTxi)), y=sf_deseq)

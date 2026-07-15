@@ -1,4 +1,4 @@
-#Enrichment plots
+# Enrichment plots
 library(gprofiler2)
 library(tidyverse)
 library(ggrepel)
@@ -6,14 +6,27 @@ library(patchwork)
 library(conflicted)
 conflicts_prefer(dplyr::filter)
 
-#pdf("test.pdf")
-base_path <-  "~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/BitaLab/BitaLab_not_shared/Research/rna-seq-host-virus/data_and_res_gh_repo/"
-res_path <- paste0(base_path, "host/76samp/")
-source("~/Documents/GitHub/rna-seq-host-virus/dge/scripts/Functions.R")
-source("~/Documents/GitHub/rna-seq-host-virus/dge/scripts/plot_funcs.R")
+# Goals
+
+# 1) Run GO and KEGG enrichment analyses for host DEGs.
+
+# Read stuff in --------- 
+
+base_path <-  "~/Documents/GitHub/Ehux_Ehv201/"
+res_path <- paste0(base_path, "scratch/host/76samp/")
+source("~/Documents/GitHub/Ehux_Ehv201/dge/Functions.R")
+source("~/Documents/GitHub/Ehux_Ehv201/dge/plot_funcs.R")
 #resGO <- readRDS(file = paste0(res_path, "ResGOKeggEnrich.rds"))
-deseqDegs_lfc1 <- readRDS(paste0(res_path, "deseq_JustDEGs_p0.05lfc1.rds"))
-deseqDegs_lfc1<-lapply(deseqDegs_lfc1, function(x) x |> group_by(locus_tag) |> dplyr::slice(1)) 
+res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest_76samp_host.rds"))
+lfc<-2
+padj<-0.05
+degs_deseq_lfc2<-lapply(res, function(x){
+  j<-x$contrast[1]
+  message("Contrast:", j)
+  x |> dplyr::filter(padjIHW <= padj) |> 
+    dplyr::filter(abs(log2FCshrink_ashr)>=lfc)})
+conts<-names(res)
+degs_deseq_lfc2<-lapply(degs_deseq_lfc2, function(x) x |> group_by(locus_tag) |> dplyr::slice(1)) 
 pal = c(
   `GO:MF` = "#3B99B1",
   `GO:BP` = "#9FC095",
@@ -41,7 +54,7 @@ bg.genes<-rownames(readRDS(paste0(res_path, "txi_76samp_host.rds"))$counts)
 tibble(id=bg.genes) |> write_tsv("~/Downloads/temp/76samp/bg.genes.txt", col_names = F)
 
 ptime<-tibble(time = 1:4, time2 = c("45min", "3h", "8h", "24h"))
-labels<-tibble(contrast = names(deseqDegs_lfc1)) |> 
+labels<-tibble(contrast = names(degs_deseq_lfc2)) |> 
   separate(contrast, into = c("exp", "cntl"), sep = "v", remove = F) |> 
   separate(exp, into = c("trt", "vir", "time"),sep = "_") |> 
   mutate(time = parse_number(time)) |> 
@@ -60,8 +73,8 @@ library(openxlsx)
 resGO2 <- vector('list', 4)
 names(resGO2) <- paste0("t", 1:4)
 for (i in 1:4) {
-  resGO2[[i]] <- deseqDegs_lfc1[grepl(paste0("t", i), names(deseqDegs_lfc1))]
-  wb1 <- createWorkbook()
+  resGO2[[i]] <- degs_deseq_lfc2[grepl(paste0("t", i), names(degs_deseq_lfc2))]
+  wb1 <- openxlsx::createWorkbook()
   options("openxlsx.maxWidth" = 40)
   
   for (j in names(resGO[[i]])) {

@@ -177,6 +177,7 @@ apply(ncbi_virus, 2, function(x) sum(is.na(x)))
   
 table(ncbi_virus$locus_tag %in% annot_virus$locus_tag)
 write_tsv(ncbi_virus, paste0(base.path, "data/Annotations-virus/ncbi-virus-latest.tsv"))
+system(paste0("gzip -f ", paste0(base.path, "data/Annotations-virus/ncbi-virus-latest.tsv")))
 #combine
 annot_virus2<-left_join(annot_virus, ncbi_virus, by = c("locus_tag", "protein_id"))
 annot_virus2 |> dplyr::filter(protein_name != Name)
@@ -205,7 +206,7 @@ saveRDS(annot_virus3, paste0(base.path, "data/Annotations-virus/annot-virus-3-la
 write_tsv(annot_virus3, file = paste0(base.path, "data/Annotations-virus/annot-virus-ext-latest.tsv"))
 
 #add uniref
-UniRef100_Q4A3B7
+#UniRef100_Q4A3B7
 #-----Get GOs ----
 #using EhV201 no longer works: June 2026
 #trying with EhV86 (ref proteome)
