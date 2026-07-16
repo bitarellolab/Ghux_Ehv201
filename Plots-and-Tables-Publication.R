@@ -32,14 +32,144 @@ img <- magick::image_read_svg(paste0(filepath, ".svg"), width = 1080)
 magick::image_write(img, paste0(filepath, ".png"))
 #
 }
+# Table 2 ---------
+remove(list=ls())
+source("dge/Functions.R")
+source("dge/plot_funcs.R")
+base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/scratch/")
+subs <- "virus"
+sampSet <- "29samp" #
+(res_path <- path.expand(paste0(base_path, subs, "/", sampSet, "/")))
+(ext <- paste0("-", sampSet, "-", subs))
+res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
+annot<-readRDS("data/Annotations-virus/annot-virus-ext-2026-07-14.rds")
+res<-lapply(res, function(x) left_join(annot, x))
+lapply(res, function(x) table(x$GOAnnotAvail))
+res<-lapply(res, function(x) isGOannot(x))
+
+file<-paste0("publication/deseq_glm_CountsContsOfInterest", ext, ".xlsx")
+tab<-xlsx::write.xlsx(res[[1]], file = file, sheet = names(res)[[1]])
+xlsx::write.xlsx(res[[2]], file = file, sheet = names(res)[[2]], append = T)
+xlsx::write.xlsx(res[[3]], file = file, sheet = names(res)[[3]], append = T)
+res<-do.call(rbind, res) 
+res |> group_by(GOAnnotAvail) |> tally() |> mutate(n/nrow(res))
+res2<-res |> filter(padjIHW<0.05) |> 
+  mutate(log2FoldChange = round(log2FoldChange, 2)) |> 
+  arrange(locus_tag) 
+source("dge/Functions.R")
+res2<-NAColOmit(res2) #remove columns without info
+res2<-isGOannot(res2)
+res2<-res2 |>  
+  select(locus_tag, contrast, contains("log2F"), protein_id, protein_name, description, contains("GO"), everything()) |> 
+  arrange(GOAnnotAvail) |>
+  select(-c(`Gene Names`, `source`, `origin`, `biotype`, `Last seen`))
+degs<-unique(res2$locus_tag)
+conts<-c("HHQ_inf_t2vDMSO_inf_t2", "HHQ_inf_t3vDMSO_inf_t3","HHQ_inf_t4vDMSO_inf_t4")
+
+temp2<-lapply(degs, function(i){
+  t<-res2 |> 
+    filter(locus_tag == i) 
+  conts0<-conts %in% (t |> pull(contrast))
+  names(conts0)<-conts
+  res0<-rep(NA, 3)
+  names(res0)<-conts
+  res0<-unlist(lapply(1:3, function(j){
+  if(conts0[[j]] == F){
+    res0[[j]]<-NA
+  }else if(conts0[[j]] == T){
+    res0[[j]]<-(t |> filter(contrast == conts[j]) |> pull(log2FoldChange))
+  }
+  }))
+})
+names(temp2)<-degs
+temp3<-do.call(rbind,lapply(degs, function(x) {tibble(locus_tag = x, `3h` = temp2[[x]][1], `8h` = temp2[[x]][2], `24h` = temp2[[x]][3])}))
+#add annotation
+df<-temp3; remove(temp3)
+df2<-res2 |> filter(locus_tag %in% degs) |> 
+  group_by(locus_tag) |> 
+  slice_head(n=1) |> 
+  ungroup() |> 
+  left_join(df) |> 
+  select(-contrast) |> 
+  select(locus_tag, protein_id, `3h`, `8h`, `24h`, everything())
+
+df2 <- df2 |> mutate("GO_BP" = case_when(locus_tag =="EPVG_00394"~"regulation of transcription by RNA polymerase II ["))
+df2<-df2 |> 
+  select(-c(contains("log2F"),contains("padj"), contains("lfcSE"))) |> 
+  select(-c("rowLabel", "ensembl_gene_id", "Length", "protein_length", "tx_id", "pvalueRaw", "stat", "Uniprot", "Begin", "End")) |> 
+  arrange(GOAnnotAvail)
+df2 |> write_tsv("publication/Table2-extended.tsv")
+#df2 |> group_by(GOAnnotAvail) |> tally()
+#FALSE 11
+#TRUE 11
+df2<-df2 |> mutate(description = tolower(paste0(protein_name, ";", description)))
+
+df2 <- df2 |> select(-c("DIR", "GO_CC", "GO_BP", "GO_MF", "Orientation", "baseMean", "protein_name","GO_IDs", "Protein existence", "EC number"))
+df2<-df2 |> select(locus_tag, protein_id, `PreferredName`,  `3h`, `8h`, `24h`, everything())
+
+df2<-df2 |> select(-c("description","Uniprot_name", "Transmembrane"))
+
+
+df3<-df2 |> select(-GOAnnotAvail)
+df3<-df3 |> mutate(`Preferred Name` = case_when(locus_tag=="EPVG_00361"~"deoxyuridine 5'-triphosphate nucleotidohydrolase", .default=PreferredName), .after = protein_id) |>
+  select(-PreferredName) 
+df3<-df3<-df3 |> select(`Locus tag` = locus_tag, `Protein ID` = protein_id, `Gene/Product` = `Preferred Name`, `3h`:`24h`, everything()) 
+df3<-df3|> 
+  select(-UniParc) |>
+  unite(func,c("GO_GO", "Subcellular location [CC]", "Function [CC]", "DNA binding"
+  ),sep = ";", remove = F) |>
+  mutate(func = gsub("NA", "", gsub(";NA", "", func)), .after = `Gene/Product`) |>
+  rename(`Function` = func) |>
+  select(`Locus tag`, `Protein ID`, `Gene/Product`, `Function`, `3h`:`24h`) 
+ # mutate(`3h` = ifelse(is.na(`3h`), "-", `3h`)) |>
+#  mutate(`8h` = ifelse(is.na(`8h`), "-", `8h`)) |>
+  #mutate(`24h` = ifelse(is.na(`24h`), "-", `24h`)) 
+ 
+df3<-df3 |>
+  arrange(desc(nchar(Function)))
+
+br_gn<-c4a(palette= "brewer.br_bg")
+
+#df3<-df3 |> mutate(`3h` = as.numeric(`3h`)) |>
+#  mutate(`3h` = ifelse(is.na(`3h`), "-", `3h`))
+
+df3<-df3 |> group_by(`Locus tag`) |> summarise(meanFC=mean(c(`3h`, `8h`, `24h`), na.rm=T)) |> ungroup() |> 
+  left_join(df3) |> arrange(desc(meanFC), Function) |>  select(-meanFC)
+
+
+tab1<-df3 |>
+  gt() |> 
+  tab_options(
+    column_labels.background.color = "gray"
+  ) |>
+  tab_spanner(c("3h", "8h", "24h"), label = "log2-fold change") |>
+  #opt_stylize(add_row_striping = TRUE, style = 1) |>
+  opt_table_font(
+    font = list(
+      google_font(name = "Roboto"),
+      "Cochin", "serif"
+    ))  |>
+  data_color(columns = `3h`,palette = br_gn, na_color="white",domain = c(-4, 4)) |>
+  data_color(columns = `8h`,palette = br_gn, na_color="white",domain = c(-4, 4)) |>
+  data_color(columns = `24h`,palette = br_gn, na_color="white",domain = c(-4, 4)) |>
+  sub_missing(columns = c("3h","8h", "24h"))
+
+tab1 |>
+  gtsave("publication/Table2-check.png")
+
+tab1 |>
+  gtsave("publication/Table2-check.docx")
+
+
 
 # Table 1 ---------
 ## Read in stuff 
+remove(list=ls())
 base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/scratch/")
 subs <- "host"
 sampSet <- "76samp" #
 res_path <- paste0(base_path, "host/76samp/")
-(ext <- paste0("_", sampSet, "_", subs))
+(ext <- paste0("-", sampSet, "-", subs))
 res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 
 l.names<-names(res)
@@ -89,7 +219,7 @@ subs <- "virus"
 sampSet <- "39samp"
 base_path<-"~/Documents/GitHub/Ehux_Ehv201/scratch/"
 res_path <- paste0(base_path, subs, "/", sampSet, "/")
-(ext <- paste0("_", sampSet, "_", subs))
+(ext <- paste0("-", sampSet, "-", subs))
 
 # read in data
 dds <- readRDS(paste0(res_path, "deseq_dds", ext, ".rds"))
@@ -767,6 +897,8 @@ dev.off()
 #C
 partC |>
   gtsave(paste0("publication/SOM-Fig5-C-", sampSet, ".png"), expand = 10)
+partC |>
+  gtsave(paste0("publication/SOM-Fig5-C-", sampSet, ".docx"))
 svglite::svglite(paste0(filepath, ".svg"),width = 9, height = 7)
 partC
 dev.off()
@@ -916,7 +1048,7 @@ draw(degsHT)
 subs <- "host"
 sampSet <- "76samp" #
 res_path <- paste0(base_path, "host/76samp/")
-(ext <- paste0("_", sampSet, "_", subs))
+(ext <- paste0("-", sampSet, "-", subs))
 #timeP4upsetDeseqINTERSECT.png
 #timeP3upsetDeseqINTERSECT.png
 #timeP2upsetDeseqINTERSECT.png

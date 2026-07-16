@@ -1,5 +1,5 @@
 ---
-title: "Annotations"
+title: "Annotations (G.hux)"
 date: '`r format(Sys.time(), "%d %B, %Y")`'
 output:
   html_document:
@@ -336,7 +336,7 @@ uniprot_host_comb<-uniprot_host_comb |> mutate(index=1:nrow(uniprot_host_comb))
 keepMe<-c()
 for(i in unique(uniprot_host_comb$tx_id)){
   temp<-uniprot_host_comb |> filter(tx_id == i)
-  cat(nrow(temp), "\r")
+ # cat(nrow(temp), "\r")
   if(nrow(temp)==2){
     temp<-temp|> filter(!(grepl(";", Uniprot)))
     keepMe[i]<-temp$index

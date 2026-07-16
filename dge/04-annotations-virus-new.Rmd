@@ -1,5 +1,5 @@
 ---
-title: "Annotations (virus)"
+title: "Annotations (EhV201)"
 date: '`r format(Sys.time(), "%d %B, %Y")`'
 output:
   html_document:
@@ -9,7 +9,7 @@ output:
 ```{r, setup, include=FALSE}
 #Setup
 knitr::opts_knit$set(
-  root.dir = '/Users/bbitarello/Documents/GitHub/rna-seq-host-virus', 
+  root.dir = '/Users/bbitarello/Documents/GitHub/Ehux_Ehv201/', 
   error = T,
   cache = T, 
   echo = T,
@@ -95,7 +95,7 @@ colnames(uniprot_virus) <- gsub("Gene Ontology IDs", "GO_IDs", colnames(uniprot_
 which(apply(uniprot_virus, 2, function(x) length(unique(x))==1))
 which(apply(uniprot_virus, 2, function(x) length(unique(x))==2))
 
-uniprot_virus |> group_by(`DNA binding`) |> tally()
+#uniprot_virus |> group_by(`DNA binding`) |> tally()
 
 uniprot_virus<-uniprot_virus |> dplyr::select(locus_tag = `Gene Names (ORF)`, Uniprot = Entry, Uniprot_name = `Entry Name`, contains("GO"), description = `Protein names`, Length,everything())
 #uniprot_virus<-uniprot_virus |> dplyr::rename(GO_Names = `GO_(GO)`)
@@ -108,11 +108,17 @@ uniprot_virus |> group_by(description == "Uncharacterized protein") |> tally()
 uniprot_virus<-isGOannot(x = uniprot_virus)
 uniprot_virus<-uniprot_virus |> arrange(locus_tag)
 #add uniparc id
-uniparc<-read_tsv("data/Annotations-virus/idmapping_2026_06_29.tsv.gz") |>
+uniparc <- read_tsv("data/Annotations-virus/idmapping_2026_06_29.tsv.gz") |>
   select(Uniprot = From, UniParc = Entry, Length, `Last seen`)
-uniprot_virus2<-left_join(uniprot_virus, uniparc)
-
-write_tsv(uniprot_virus2, paste0(base.path, "data/Annotations-virus/uniprot-virus-latest.tsv")) #good until here
+uniprot_virus2 <-left_join(uniprot_virus, uniparc)
+uniprot_virus2 <-isGOannot(uniprot_virus2) 
+uniprot_virus2 |> 
+  group_by(GOAnnotAvail) |> 
+  tally()
+#1 FALSE          228
+#2 TRUE           219
+write_tsv(uniprot_virus2, paste0(base.path, "data/Annotations-virus/uniprot-virus-", lubridate::today(),".tsv")) #good until here
+system(paste0("gzip -f data/Annotations-virus/uniprot-virus-",lubridate::today(), ".tsv"))
 
 ```
 
@@ -160,12 +166,18 @@ annot_virus <- tibble(
 annot_virus #447 rows
 apply(annot_virus, 2, function(x) length(unique(x)))
 annot_virus<-annot_virus |> dplyr::select(-c("scaffold"))
-annot_virus<-annot_virus |> select(-accession)
-saveRDS(annot_virus, paste0(base.path, "data/Annotations-virus/annot-virus-latest.rds"))
+annot_virus |> filter(protein_id != accession)
+
+annot_virus<-annot_virus |> 
+  select(-accession)
+saveRDS(annot_virus, paste0(base.path, "data/Annotations-virus/annot-virus-", lubridate::today(), ".rds"))
+
+annot_virus2<-left_join(annot_virus, uniprot_virus2)
+saveRDS(annot_virus, paste0(base.path, "data/Annotations-virus/annot-virus2-", lubridate::today(), ".rds"))
 
 # ncbi
 #https://www.ncbi.nlm.nih.gov/datasets/gene/GCA_010974645.1/?gene_type=protein-coding
-ncbi_virus<-paste0(base.path, "data/Annotations-virus/ncbi_dataset_virus.tsv") |> read_tsv()
+ncbi_virus<-paste0(base.path, "data/Annotations-virus/ncbi_dataset_virus.tsv.gz") |> read_tsv()
 ncbi_virus<-NAColOmit(ncbi_virus)
 ncbi_virus |> dplyr::filter(Name != `Protein name`) # zero rows
 ncbi_virus<-ncbi_virus |> dplyr::select(locus_tag = `Locus tag`, protein_id = `Protein accession`, biotype = `Gene Type`, protein_name = `Protein name`, protein_length = `Protein length`, everything()) |> arrange(locus_tag)
@@ -176,24 +188,24 @@ apply(ncbi_virus, 2, function(x) sum(is.na(x)))
 
   
 table(ncbi_virus$locus_tag %in% annot_virus$locus_tag)
-write_tsv(ncbi_virus, paste0(base.path, "data/Annotations-virus/ncbi-virus-latest.tsv"))
-system(paste0("gzip -f ", paste0(base.path, "data/Annotations-virus/ncbi-virus-latest.tsv")))
+write_tsv(ncbi_virus, paste0(base.path, "data/Annotations-virus/ncbi-virus-", lubridate::today(), ".tsv"))
+system(paste0("gzip -f ", paste0(base.path, "data/Annotations-virus/ncbi-virus-", lubridate::today(), ".tsv")))
 #combine
-annot_virus2<-left_join(annot_virus, ncbi_virus, by = c("locus_tag", "protein_id"))
-annot_virus2 |> dplyr::filter(protein_name != Name)
-annot_virus2<-annot_virus2 |> dplyr::select(-Name)
+annot_virus3<-left_join(annot_virus2, ncbi_virus, by = c("locus_tag", "protein_id"))
+annot_virus3 |> dplyr::filter(protein_name != Name)
+annot_virus3<-annot_virus3 |> dplyr::select(-Name)
+annot_virus3<-isGOannot(annot_virus3)
+#annot_virus3 |> group_by(GOAnnotAvail) |> tally()
 #annot_virus2 |> dplyr::filter(description2 != description3)
-annot_virus2<-annot_virus2 |> dplyr::select(locus_tag:protein_id, protein_length, protein_name, everything())
-saveRDS(annot_virus2, paste0(base.path, "data/Annotations-virus/annot-virus-2-latest.rds"))
+annot_virus3<-annot_virus3 |> dplyr::select(locus_tag:protein_id, protein_name, description, protein_length, everything())
+annot_virus3<-annot_virus3 |> select(-Accession)
 
-annot_virus3<-left_join(annot_virus2, uniprot_virus2, by = 'locus_tag') 
 
-#annot_virus3 |> dplyr::filter(Length != Length2)
+
 
 apply(annot_virus3, 2, function(x) sum(is.na(x)))
 annot_virus3<-annot_virus3 |> dplyr::select(names(sort(apply(annot_virus3, 2, function(x) sum(is.na(x))))))
 annot_virus3<-annot_virus3 |> mutate(PreferredName = description, .after = protein_name)
-cols<-colnames(annot_virus3)[which(grepl("GO_", colnames(annot_virus3)))]
 annot_virus3<-isGOannot(annot_virus3)
 annot_virus3<-annot_virus3 |> dplyr::select(locus_tag: PreferredName, GOAnnotAvail, everything())
 annot_virus3 |> group_by(GOAnnotAvail) |> tally()
@@ -201,15 +213,17 @@ annot_virus3 |> group_by(GOAnnotAvail) |> tally()
 #  <lgl>        <int>
 #1 FALSE          228
 #2 TRUE           219
+saveRDS(annot_virus3, paste0(base.path, "data/Annotations-virus/annot-virus-ext-", lubridate::today(), ".rds"))
 
-saveRDS(annot_virus3, paste0(base.path, "data/Annotations-virus/annot-virus-3-latest.rds"))
-write_tsv(annot_virus3, file = paste0(base.path, "data/Annotations-virus/annot-virus-ext-latest.tsv"))
+write_tsv(annot_virus3, file = paste0(base.path, "data/Annotations-virus/annot-virus-ext-", lubridate::today(), ".tsv"))
+system(paste0("gzip -f ", base.path, "data/Annotations-virus/annot-virus-ext-", lubridate::today(), ".tsv"))
 
 #add uniref
 #UniRef100_Q4A3B7
 #-----Get GOs ----
 #using EhV201 no longer works: June 2026
 #trying with EhV86 (ref proteome)
+if(FALSE){ #run once by setting to T
 proteome<-protti::fetch_uniprot_proteome(654925,reviewed = F,max_tries = 100)
 
 fetchIDs <- protti::fetch_uniprot(uniprot_ids = proteome$accession,
@@ -268,6 +282,7 @@ fetchIDs<-fetchIDs |> arrange(locus_tag)
 
 
 saveRDS(fetchIDs, file = paste0(base.path, "data/Annotations-virus/EhV-86-uniprot.rds"))
+}
 #all good up to here.
 ##########################
 sessionInfo()
@@ -283,7 +298,7 @@ sessionInfo()
 ```
 
 # Obsolete
-```{r obsolete, eval=F, include = F}
+```{r obsolete, eval=F, include = F, echo = F}
 #obsolete ----
 #uniprot_virus2<-left_join(fetchIDs, uniprot_virus)
 #uniprot_virus2 |> dplyr::filter(Protein_Length != length)

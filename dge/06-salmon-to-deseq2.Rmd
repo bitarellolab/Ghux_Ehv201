@@ -51,10 +51,10 @@ setwd(base_path)
 
 ## Options: 
 #subs <- "virus"; sampSet <- "39samp" #
-#subs <- "virus"; sampSet <- "29samp"  # 
+subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
-subs <- "host";  sampSet <- "76samp" #
+#subs <- "host";  sampSet <- "76samp" #
 #subs <- "host";  sampSet <- "79samp" #
 
 res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
@@ -202,8 +202,12 @@ salmon_df<-read_tsv(paste0(res_path, "tables/salmon-output", ext, ".tsv.gz"))
 }
 # Read in annotation data ----
 
-if(subs=='host'){
-annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-07-11.rds"))
+if(subs=="virus"){
+annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-virus-ext-2026-07-14.rds"))
+annot |> group_by(tx_id) |> tally() |> filter(n>1)
+annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
+}else if(subs == "host"){
+annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-07-14.rds"))
 annot<-annot |> distinct()
 
 #check if empty
@@ -218,10 +222,8 @@ annot<-annot |> distinct()
     tally() |> 
     filter(n>1) |> 
     pull(rowLabel))
-
-}else{
-  annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds")
 }
+
 ```
 
 # Summarise gene expression (manually)
@@ -242,7 +244,8 @@ remove(annot)
 gc()
 }else{
 tx_to_gene <- annot |> 
-  dplyr::select(tx_id, locus_tag, rowLabel, everything())
+  mutate(ensembl_gene_id = locus_tag) |>
+  dplyr::select(tx_id, ensembl_gene_id, locus_tag, rowLabel, everything())
 }
 #DMSO_cntl_t1_2 EOD08264    573         421.011  3.57990   46.008
 if(TRUE){#Run once for each sampSet#--------------------

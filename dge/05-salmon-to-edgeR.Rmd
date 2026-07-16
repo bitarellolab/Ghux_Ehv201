@@ -51,11 +51,11 @@ setwd(base_path)
 ## Select subset of genes to look at. 
 
 ## Options (select one and comment out the others):
-#subs <- "virus"; sampSet <- "39samp" #
+subs <- "virus"; sampSet <- "39samp" #
 #subs <- "virus"; sampSet <- "29samp"  # 
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
-subs <- "host";  sampSet <- "76samp" #
+#subs <- "host";  sampSet <- "76samp" #
 #subs <- "host";  sampSet <- "79samp" #
 res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
 (ext <- paste0("-", sampSet,"-", subs))
@@ -104,17 +104,14 @@ salmon_files <- readRDS(paste0("data/salmon_files_", sampSet, ".rds"))
 Sys.setenv(VROOM_CONNECTION_SIZE = 500000L)
 #if(TRUE){ #updated with new host annot 07/21/25
 
-if(subs == 'virus'){
-if(TRUE){#run once ----
-annot<-read_tsv(paste0(base_path, "data/Annotations-", subs, "/annot-virus-ext-latest.tsv.gz"))
+
+
+if(subs=="virus"){
+annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-virus-ext-2026-07-14.rds"))
 annot |> group_by(tx_id) |> tally() |> filter(n>1)
 annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
-saveRDS(annot, paste0(base_path, "data/Annotations-virus/annot-virus-edgeR.rds"))
-}else{
- annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds")
- }
 }else if(subs == "host"){
-annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-07-11.rds"))
+annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-07-14.rds"))
 annot<-annot |> distinct()
 
 #check if empty
@@ -130,6 +127,7 @@ annot<-annot |> distinct()
     filter(n>1) |> 
     pull(rowLabel))
 }
+
 
 ```
 
@@ -150,7 +148,8 @@ tx_to_gene <- annot |>
   dplyr::select(tx_id, ensembl_gene_id, locus_tag, rowLabel, tx_name, NrTranscripts,everything())
 }else{
 tx_to_gene <- annot |> 
-  dplyr::select(tx_id, locus_tag, rowLabel, everything())
+  mutate(ensembl_gene_id = locus_tag) |>
+  dplyr::select(tx_id, ensembl_gene_id, locus_tag, rowLabel, everything())
 }
 
 if(TRUE){
@@ -653,8 +652,8 @@ qlf_all<-qlf_all |>
 
 conts_of_interest<-c(paste0("HHQ_inf_t", 1:4, "vHHQ_cntl_t", 1:4),
       paste0("DMSO_inf_t", 1:4, "vDMSO_cntl_t", 1:4),
-       paste0("HHQ_cntl", 1:4, "vDMSO_cntl_t", 1:4),
-      paste0("HHQ_inf", 1:4, "vDMSO_inf_t", 1:4)
+       paste0("HHQ_cntl_t", 1:4, "vDMSO_cntl_t", 1:4),
+      paste0("HHQ_inf_t", 1:4, "vDMSO_inf_t", 1:4)
      )   
 
 
@@ -666,16 +665,23 @@ qlf_all <- qlf_all |>
 
 qlf_all <- qlf_all |> 
   mutate(DIR = ifelse(logFC >0, "UP", ifelse(logFC < 0, "DOWN", NA)))
+
+
+qlf_all<-qlf_all |> dplyr::filter(contrast %in% conts_of_interest)
+qlf_all |> group_by(contrast) |>tally(sort=T)
+qlf_all |> group_by(contrast, DIR) |> tally(sort=T)
    
-qlf_all<-qlf_all |> filter(contrast %in% conts_of_interest)
+qlf_all<-na.omit(qlf_all)
+qlf_all<-qlf_all |> group_by(contrast) |> arrange(FDR)
 #qlf_all<-na.omit(qlf_all)
 write_tsv(qlf_all, paste0(res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv"))
+system(paste0("gzip -f ", res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv"))
 }else{
-qlf_all<-read_tsv(paste0(res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv"))  
+qlf_all<-read_tsv(paste0(res_path, "tables/edgeR_GLM_DiffExpr_AllContrastsp0.05.tsv.gz"))  
 }
           
 qlf_all |>  
-  filter(contrast %in% conts_of_interest) |>
+  #filter(contrast %in% conts_of_interest) |>
   group_by(contrast, .drop = FALSE) |>  
   tally() |> 
   arrange(desc(n)) |>
