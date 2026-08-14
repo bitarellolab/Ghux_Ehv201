@@ -34,9 +34,10 @@ magick::image_write(img, paste0(filepath, ".png"))
 }
 # Table 2 ---------
 remove(list=ls())
+#showtext::showtext_opts(dpi=300)
 source("dge/Functions.R")
 source("dge/plot_funcs.R")
-base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/scratch/")
+base_path <- path.expand("~/Documents/Github/Ghux_Ehv201/scratch/")
 subs <- "virus"
 sampSet <- "29samp" #
 (res_path <- path.expand(paste0(base_path, subs, "/", sampSet, "/")))
@@ -54,7 +55,8 @@ xlsx::write.xlsx(res[[3]], file = file, sheet = names(res)[[3]], append = T)
 res<-do.call(rbind, res) 
 res |> group_by(GOAnnotAvail) |> tally() |> mutate(n/nrow(res))
 res2<-res |> filter(padjIHW<0.05) |> 
-  mutate(log2FoldChange = round(log2FoldChange, 2)) |> 
+  mutate(log2FoldChange = round(log2FoldChange, 2)) |>
+  mutate(log2FCshrink_ashr = round(log2FCshrink_ashr, 2)) |>
   arrange(locus_tag) 
 source("dge/Functions.R")
 res2<-NAColOmit(res2) #remove columns without info
@@ -77,7 +79,7 @@ temp2<-lapply(degs, function(i){
   if(conts0[[j]] == F){
     res0[[j]]<-NA
   }else if(conts0[[j]] == T){
-    res0[[j]]<-(t |> filter(contrast == conts[j]) |> pull(log2FoldChange))
+    res0[[j]]<-(t |> filter(contrast == conts[j]) |> pull(log2FCshrink_ashr))
   }
   }))
 })
@@ -919,6 +921,73 @@ p1
 dev.off()
 # save
 
+
+# Shaler et al. core genes ---------
+remove(list=ls())
+showtext::showtext_opts(dpi=300)
+source("dge/Functions.R")
+source("dge/plot_funcs.R")
+base_path <- path.expand("~/Documents/Github/Ghux_Ehv201/scratch/")
+subs <- "host"
+sampSet <- "76samp" #
+(res_path <- path.expand(paste0(base_path, subs, "/", sampSet, "/")))
+(ext <- paste0("-", sampSet, "-", subs))
+annot<-data.table::fread(paste0("data/Annotations-", subs, "/annot-host-less-2026-07-21.tsv.gz"))
+glm_subset<-readRDS(paste0("scratch/host/76samp/deseq_glm_CountsContsOfInterest", ext, ".rds"))
+core_genes<-c("EMIHUDRAFT_436073", "EMIHUDRAFT_436849", "EMIHUDRAFT_434619", 
+              "EMIHUDRAFT_453191", "EMIHUDRAFT_212395", "EMIHUDRAFT_106524", 
+              "EMIHUDRAFT_434980", "EMIHUDRAFT_356402", "EMIHUDRAFT_219520", 
+              "EMIHUDRAFT_240219", "EMIHUDRAFT_451400", "EMIHUDRAFT_462878", 
+              "EMIHUDRAFT_196102", "EMIHUDRAFT_115240", "EMIHUDRAFT_432536", 
+              "EMIHUDRAFT_446997", "EMIHUDRAFT_444563", "EMIHUDRAFT_445031", 
+              "EMIHUDRAFT_433953", "EMIHUDRAFT_200313", "EMIHUDRAFT_95611", 
+              "EMIHUDRAFT_212382", "EMIHUDRAFT_432118", "EMIHUDRAFT_64876", 
+              "EMIHUDRAFT_455791", "EMIHUDRAFT_121319", "EMIHUDRAFT_100149", 
+              "EMIHUDRAFT_467606", "EMIHUDRAFT_461706", "EMIHUDRAFT_424687", 
+              "EMIHUDRAFT_214423", "EMIHUDRAFT_98528", "EMIHUDRAFT_447336", 
+              "EMIHUDRAFT_468441", "EMIHUDRAFT_108601", "EMIHUDRAFT_102755", 
+              "EMIHUDRAFT_115708", "EMIHUDRAFT_115708", "EMIHUDRAFT_101020", 
+              "EMIHUDRAFT_445288", "EMIHUDRAFT_439512", "EMIHUDRAFT_235814", 
+              "EMIHUDRAFT_466232", "EMIHUDRAFT_210675", "EMIHUDRAFT_449865", 
+              "EMIHUDRAFT_435860", "EMIHUDRAFT_434154", "EMIHUDRAFT_96740", 
+              "EMIHUDRAFT_316706")
+core_genes[duplicated(core_genes)]
+
+conts1<-names(glm_subset)[grepl("^HHQ_cntl",names(glm_subset))]
+conts1_info<-lapply(conts1, function(x) glm_subset[[x]] |> filter(locus_tag %in% core_genes))
+names(conts1_info)<-conts1
+temp<-lapply(conts1_info , function(x) x |> 
+               select(locus_tag, log2FCshrink_ashr))
+temp<-lapply(temp, function(x) x[match(core_genes, x$locus_tag),])
+temp<-lapply(1:4, function(x) temp[[x]] |> mutate(`Time Point` = x))
+temp<-do.call(rbind, temp)
+temp2<-lapply(unique(core_genes), function(g){
+  message("Gene: ", g)
+  temp |> filter(locus_tag==g) |> distinct() |> pivot_wider(names_from="Time Point", values_from = log2FCshrink_ashr) |> rename(`45min`=`1`, `3h`=`2`, `8h` = `3`, `24h` = `4`) 
+  
+})
+temp2b<-do.call(rbind, temp2)
+
+remove(temp, temp2)
+conts2<-names(glm_subset)[grepl("^HHQ_inf_t(1|2|3|4)vDMSO_inf",names(glm_subset))]
+conts2_info<-lapply(conts2, function(x) glm_subset[[x]] |> filter(locus_tag %in% core_genes))
+names(conts2_info)<-conts2
+temp<-lapply(conts2_info , function(x) x |> 
+               select(locus_tag, log2FCshrink_ashr))
+temp<-lapply(temp, function(x) x[match(core_genes, x$locus_tag),])
+temp<-lapply(1:4, function(x) temp[[x]] |> mutate(`Time Point` = x))
+temp<-do.call(rbind, temp)
+temp2<-lapply(unique(core_genes), function(g){
+  message("Gene: ", g)
+  temp |> filter(locus_tag==g) |> distinct() |> pivot_wider(names_from="Time Point", values_from = log2FCshrink_ashr) |> rename(`45min`=`1`, `3h`=`2`, `8h` = `3`, `24h` = `4`) 
+  
+})
+temp2c<-do.call(rbind, temp2)
+temp
+temp2c<-left_join(temp2, annot)
+
+
+
 # SOM Data File 5 ---------
 
 
@@ -939,6 +1008,219 @@ annot |> select(tx_id, locus_tag,rowLabel, tx_name, biotype, protein_id,)
 #legend<-tibble(`Column Name` = colnames(host_annot), 
 #               `Description` = c("Genkank transcript ID","locus tag (ncbi). Note, if more than one transcript exists for a given locus tag, a '-' was added at the end followed by a number to differentiate them"))
 
+# Reads/sample (table) --------
+
+salmon<-read_tsv("scratch/host/79samp/tables/salmon-output-79samp-host.tsv.gz")
+annot<-data.table::fread(paste0("data/Annotations-host/annot-host-less-2026-07-21.tsv.gz"))
+salmon<-salmon |> group_by(Name %in% annot$tx_id) |> rename(source = `Name %in% annot$tx_id`) |> ungroup() |> mutate(source = ifelse(source==TRUE, "host", "virus"))
+
+#reads per sample
+
+reads_per_sample<-salmon |> group_by(sample_name) |> summarise(Reads_mapped = sum(NumReads))
+summary((reads_per_sample |> mutate(Reads_mapped=Reads_mapped/1e6) |> pull(Reads_mapped)))
+
+#reads mapped to host/virus per sample
+reads_per_sample_per_source<-salmon |> group_by(sample_name, source) |> summarise(Reads_mapped = sum(NumReads))
+reads_per_sample_per_source2<-reads_per_sample_per_source |> 
+  pivot_wider(names_from=source,values_from = Reads_mapped) |> 
+  mutate(Total =  host+virus) |> 
+  mutate(p_host = host/Total, p_virus = virus/Total) 
+reads_per_sample_per_source2 |>
+  filter(sample_name %in% c("HHQ_cntl_t1_3", "DMSO_cntl_t1_1", "DMSO_inf_t2_1", "DMSO_cntl_t2_1"))
+
+tosave<-reads_per_sample_per_source2 |> ungroup() |> 
+  mutate(host = host/1e6, virus = virus/1e6, Total = Total/1e6) |> 
+  gt(rowname_col = "sample_name") |> 
+  tab_options(
+    column_labels.background.color = "gray"
+  ) |>
+  tab_spanner(c("host", "virus", "Total"), label = "Million reads mapped") |>
+  
+  #opt_stylize(add_row_striping = TRUE, style = 1) |>
+  opt_table_font(
+    font = list(
+      google_font(name = "Roboto"),
+      "Cochin", "serif"
+    )) 
+
+
+tosave<-reads_per_sample_per_source2 |> ungroup() |> 
+  mutate(host = host/1e6, virus = virus/1e6, Total = Total/1e6) |> 
+  gt(rowname_col = "sample_name") |> 
+  tab_options(
+    column_labels.background.color = "gray"
+  ) |>
+  tab_spanner(c("host", "virus", "Total"), label = "Million reads mapped") |>
+  tab_row_group(
+    label = "45 min",
+    rows = matches("_t1")
+  ) |>
+  tab_row_group(
+    label = "3 h",
+    rows = matches("_t2") 
+  ) |> 
+  tab_row_group(
+    label = "8 h",
+    rows = matches("_t3")
+  ) |>
+  tab_row_group(
+    label = "24 h",
+    rows = matches("_t4")
+  ) |>
+  row_group_order(groups = c("45 min", "3 h", "8 h", "24 h")) |>
+  
+  #opt_stylize(add_row_striping = TRUE, style = 1) |>
+  opt_table_font(
+    font = list(
+      google_font(name = "Roboto"),
+      "Cochin", "serif"
+    ))  |> 
+  tab_footnote("Based on all genes in each transcriptome, before any filtering.")
+
+tosave |> gtsave("publication/Reads-per-sample-table-79samp.docx")
+
+# 76 samp
+
+salmon<-read_tsv("scratch/host/76samp/tables/salmon-output-76samp-host.tsv.gz")
+salmon<-salmon |> group_by(Name %in% annot$tx_id) |> rename(source = `Name %in% annot$tx_id`) |> ungroup() |> mutate(source = ifelse(source==TRUE, "host", "virus"))
+
+#reads per sample
+
+reads_per_sample<-salmon |> group_by(sample_name) |> summarise(Reads_mapped = sum(NumReads))
+summary((reads_per_sample |> mutate(Reads_mapped=Reads_mapped/1e6) |> pull(Reads_mapped)))
+
+#reads mapped to host/virus per sample
+reads_per_sample_per_source<-salmon |> group_by(sample_name, source) |> summarise(Reads_mapped = sum(NumReads))
+reads_per_sample_per_source2<-reads_per_sample_per_source |> 
+  pivot_wider(names_from=source,values_from = Reads_mapped) |> 
+  mutate(Total =  host+virus) |> 
+  mutate(p_host = host/Total, p_virus = virus/Total) 
+reads_per_sample_per_source2 |>
+  filter(sample_name %in% c("HHQ_cntl_t1_3", "DMSO_cntl_t1_1", "DMSO_inf_t2_1", "DMSO_cntl_t2_1"))
+
+summary((reads_per_sample_per_source2 |> pull(p_host)))
+summary((reads_per_sample_per_source2 |> filter(grepl("_inf", sample_name)) |> pull(p_host)))
+
+
+tosave<-reads_per_sample_per_source2 |> ungroup() |> 
+  mutate(host = host/1e6, virus = virus/1e6, Total = Total/1e6) |> 
+  gt(rowname_col = "sample_name") |> 
+  tab_options(
+    column_labels.background.color = "gray"
+  ) |>
+  tab_spanner(c("host", "virus", "Total"), label = "Million reads mapped") |>
+  tab_row_group(
+    label = "45 min",
+    rows = matches("_t1")
+  ) |>
+  tab_row_group(
+    label = "3 h",
+    rows = matches("_t2") 
+  ) |> 
+  tab_row_group(
+    label = "8 h",
+    rows = matches("_t3")
+  ) |>
+  tab_row_group(
+    label = "24 h",
+    rows = matches("_t4")
+  ) |>
+  row_group_order(groups = c("45 min", "3 h", "8 h", "24 h")) |>
+  
+  #opt_stylize(add_row_striping = TRUE, style = 1) |>
+  opt_table_font(
+    font = list(
+      google_font(name = "Roboto"),
+      "Cochin", "serif"
+    ))  |> 
+  tab_footnote("Based on all genes in each transcriptome, before any filtering.")
+
+tosave |> gtsave("publication/Reads-per-sample-table-76samp.docx")
+
+# passed filtering
+
+salmon_filt<-read_tsv("scratch/host/76samp/tables/salmon-output-processed-filt-76samp-host.tsv.gz")
+length(unique(salmon_filt$ensembl_gene_id))
+length(unique(salmon_filt$tx_id))
+coldata<-read_tsv("data/coldata_76samp.txt")
+txi<-readRDS("scratch/host/76samp/txi-76samp-host.rds")
+library(edgeR)
+cts <- txi$counts
+normMat <- txi$length
+## Obtaining per-observation scaling factors for length, adjusted to avoid changing the magnitude of the counts.
+normMat <- normMat/exp(rowMeans(log(normMat)))
+normCts <- cts/normMat
+## Computing effective library sizes from scaled counts, to account for composition biases between samples.
+eff.lib <- calcNormFactors(normCts) * colSums(normCts)
+## Combining effective library sizes with the length factors, and calculating offsets for a log-link GLM.
+normMat <- sweep(normMat, 2, eff.lib, "*")
+normMat <- log(normMat)
+y <- DGEList(cts)
+y <- scaleOffset(y, normMat)
+group <- fct_inorder(coldata$condition)
+design <- model.matrix(~0 + group)
+#colnames(design) <- sub("batch", "", colnames(design))
+#colnames(design) <- sub("condition", "", colnames(design))
+colnames(design) <- sub("group", "", colnames(design))
+colnames(design)
+y$samples$group<-group
+cpm_cutoff<-10/median(colSums(y$counts))*1e6
+cpmy<-cpm(y$counts)
+rowSums(cpmy >=cpm_cutoff)
+table(rowSums(cpmy >= cpm_cutoff) >=4)
+#genes_keep<-readRDS("scratch/host/76samp/genes-keep-final-76samp-host.rds")
+
+# Expand annot file
+## amend the file named annot-host-less-2026-07-21.tsv with the normalized counts per gene per sample, and the base mean, and for each contrast (of which there are 16) the log2FC_shrink, pIHW
+library(DESeq2)
+annot<-data.table::fread(paste0("data/Annotations-host/annot-host-less-2026-07-21.tsv.gz"))
+glm_subset<-readRDS("scratch/host/76samp/deseq_glm_CountsContsOfInterest-76samp-host.rds")
+baseMean<-glm_subset[[2]] |> select(locus_tag, baseMean)
+dds<-readRDS(paste0("scratch/host/76samp/deseq_dds-76samp-host.rds"))
+norm_counts<-counts(dds, normalized = T)
+norm_counts<-as_tibble(norm_counts, rownames = "locus_tag")
+
+norm_counts2<-left_join(norm_counts, annot)
+norm_counts2<-left_join(baseMean, norm_counts2)
+norm_counts2<-norm_counts2 |> arrange(locus_tag)
+
+glm_subset2<-lapply(glm_subset, function(x) {
+  x |> select(locus_tag, ensembl_gene_id, log2FCshrink_ashr, padjIHW)
+})
+#remove(glm_subset)
+glm_subset2<-lapply(glm_subset2, function(x) x |> arrange(ensembl_gene_id))
+conts<-names(glm_subset2)
+for(x in conts){
+  colnames(glm_subset2[[x]])[3:4]<-paste0(x, "_", colnames(glm_subset2[[x]])[3:4])
+  colnames(glm_subset2[[x]])<-gsub("log2FCshrink_ashr","lfc_sashr", gsub("padjIHW", "pIHW", colnames(glm_subset2[[x]])))
+  glm_subset2[[x]]<-glm_subset2[[x]] |> select(-ensembl_gene_id)
+}
+glm_subset3<-do.call(cbind, glm_subset2) |> as_tibble() 
+colnames(glm_subset3)<-gsub("HHQ_inf_t1vHHQ_cntl_t1.locus_tag", "locus_tag", colnames(glm_subset3))
+todrop<-colnames(glm_subset3)[grepl("t(1|2|3|4)\\.locus_", colnames(glm_subset3))]
+glm_subset3<-glm_subset3 |> select(-all_of(todrop))
+all<-left_join(glm_subset3, norm_counts2) 
+all<-all |> select(locus_tag, baseMean, everything())
+all |> write_tsv("publication/annot-host-with-normCounts-allContrasts-76samp.tsv")
+system(paste0("gzip -f --best publication/annot-host-with-normCounts-allContrasts-76samp.tsv"))
+all |> write_tsv("publication/annot-host-with-normCounts-allContrasts-76samp.tsv")
+
+# Add uniprot ID and protein annot to loadings file ---------
+
+lfile<-"scratch/host/76samp/PC_loadings/PC1_loadings-76samp-host.rnk"
+lf<-read_tsv(lfile)
+colnames(lf)<-gsub("#", "", colnames(lf))
+#add index col
+#lf<-lf |> mutate(index=seq_along(1:nrow(lf)))
+lf2<-left_join(lf, annot |> select(ensembl_gene_id, Uniprot, UniParc, description, description2))
+dups<-lf2 |> group_by(ensembl_gene_id) |> tally(sort=T) |> filter(n>1) |> pull(ensembl_gene_id)
+for(i in dups){
+  lf2<-lf2 |> mutate(Uniprot = ifelse(ensembl_gene_id == i, paste0((lf2 |> filter(ensembl_gene_id == i) |> pull(Uniprot)),collapse = ";"), Uniprot))
+  lf2<-lf2 |> mutate(UniParc = ifelse(ensembl_gene_id == i, paste0((lf2 |> filter(ensembl_gene_id == i) |> pull(UniParc)),collapse = ";"), Uniprot))
+}
+lf2<-lf2 |> filter(!(ensembl_gene_id == "EMIHUDRAFT_448185" & description == description2))
+lf2<-lf2 |> distinct()
+write_tsv(lf2, file = "publication/PC1-loadings-76samp-host-with-annot.tsv")
 # Playground ----------
 MyPheatmapClust(
   scaled_mat,
