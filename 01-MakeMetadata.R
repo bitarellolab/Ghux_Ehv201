@@ -4,8 +4,9 @@ library(readxl)
 library(conflicted)
 conflicts_prefer(dplyr::filter)
 
-# Goals: make metadata tsv file. See also: FixMetadata.R
-
+# Goals: make metadata tsv file. 
+# Note: the metadata.tsv file created by this script does not fix the mislabelled samples. 
+# See also: 04-FixMetadata.R, raw-to-processed-sample-names.R
 study_info <- 
   read_excel("data/AAA-StudyInfo.xls") |>
   filter(RULA_Run %in% c("FGC2634", "FGC2639"))

@@ -822,10 +822,41 @@ write_tsv(annot_host2,paste0(base.path, "data/Annotations-host/tx-to-gene-host-"
 system(paste0("gzip -f data/Annotations-host/tx-to-gene-host-",lubridate::today(), ".tsv"))
 # All good up to here (2026)
 
+
+
 sessionInfo()
  sessionInfo() %>%
    capture.output() %>%
    writeLines(paste0("logs/annotation-host.txt"))
+
+
+#new (July 21, 2026)
+annot<-annot_host2
+unis<-annot |> filter(is.na(Length) & biotype =="protein-coding") |> arrange(UniParc) |> select(UniParc) |> pull(UniParc)
+
+uniprot<-"~/Documents/GitHub/Ghux_Ehv201/data/Annotations-host/uniprotkb_taxonomy_id_2903_2026_06_23.tsv.gz" |>
+    read_tsv(col_names = T, col_types = cols()) |> select(UniParc, Length)
+
+for(i in unique(unis)){
+  #i=unique(unis)[1]
+  l<-(uniprot |> filter(UniParc==i) |> pull(Length))
+  annot<-annot |> mutate(Length = ifelse(UniParc==i & is.na(Length)==T, l, Length))
+}
+#check:
+annot |> filter(is.na(Length) & biotype =="protein-coding") |> arrange(UniParc) |> select(UniParc) #yay
+#remove some more columns
+annot<-annot |> select(-NrTranscripts)
+annot<-annot |> select(-scaffold)
+annot<-annot |> select(-`Entry Name`)
+annot<-annot |> select(-source)
+annot |> mutate(description=gsub("; hypothetical protein", ""))
+annot<-annot |> mutate(KEGG=gsub("; hypothetical protein", "", KEGG))
+annotCleaner<-annot |> select(tx_id, locus_tag, tx_name, ensembl_gene_id, refSeq_prot,ENA_accession, gene_symbol, biotype, rowLabel, tx_id1, tx_id2, Uniprot, UniParc, Length, contains("description"), GOAnnotAvail, contains("GO"), contains("fam"), Pathway, contains("KEGG"), JGIDB, orthogroup,seed_ortholog, eggNOG_OGs, max_annot_lvl, COG_category, everything())
+annotCleaner<-annotCleaner |> arrange(locus_tag)
+
+write_tsv(annotCleaner, file = paste0(base.path, "data/Annotations-host/annot-host-less-", lubridate::today(),".tsv"))
+system(paste0("gzip -f data/Annotations-host/annot-host-less-",lubridate::today(), ".tsv"))
+
 
 ```
 

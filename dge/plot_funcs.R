@@ -122,23 +122,23 @@ bb_theme <-  function() {
   theme(
     text = element_text(face = "plain", family = "Roboto Condensed"),
     axis.text.x = element_text(
-      size = 13,
+      size = 12,
       family = "Roboto Condensed",
       face = "plain"
     ),
     axis.text.y = element_text(
-      size = 13,
+      size = 12,
       family = "Roboto Condensed",
       face = "plain"
     ),
     axis.title.x = element_text(
-      size = 14,
+      size = 13,
       hjust = 1,
       family = "Roboto Condensed",
       face = "plain"
     ),
     axis.title.y = element_text(
-      size = 14,
+      size = 13,
       hjust = 1,
       family = "Roboto Condensed",
       face = "plain"

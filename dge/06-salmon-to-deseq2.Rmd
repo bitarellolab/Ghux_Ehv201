@@ -14,7 +14,7 @@ output:
 #.rs.restartR()
 #Setup
 knitr::opts_knit$set(
-  root.dir = '/Users/bbitarello/Documents/GitHub/Ehux_Ehv201/', 
+  root.dir = '/Users/bbitarello/Documents/GitHub/Ghux_Ehv201/', 
   error = T,
   cache = F, 
   echo = T,
@@ -24,40 +24,48 @@ knitr::opts_knit$set(
   collapse = TRUE,
   dev = 'pdf')
 #avoid RAM issues with xlsx package
-options(java.parameters = "-Xmx12000m") 
+options(java.parameters = "-Xmx10000m") 
 
+# Packages
+
+library(edgeR)
+library(Glimma)
+library(PCAtools)
+library(tidyverse)
+library(DESeq2)
+library(ashr)
 ## Fonts and figures settings
-source("~/Documents/GitHub/Ehux_Ehv201/dge/pkgs.R")
-source("~/Documents/GitHub/Ehux_Ehv201/dge/Functions.R")
-source("~/Documents/GitHub/Ehux_Ehv201/dge/plot_funcs.R")
+#source("~/Documents/GitHub/Ghux_Ehv201/dge/pkgs.R")
+source("~/Documents/GitHub/Ghux_Ehv201/dge/Functions.R")
+source("~/Documents/GitHub/Ghux_Ehv201/dge/plot_funcs.R")
 ## Package conflicts
 library(conflicted)
 conflicts_prefer(dplyr::filter)
 conflicts_prefer(dplyr::rename)
 conflicts_prefer(dplyr::select)
 conflicts_prefer(base::remove)
-#renv::init()
-
+#renv::status()
 ```
 
 # Setups
 
 ```{r setup2, eval = T, echo = F, include = T, cache = F}
 ## Adjust these to your actual file paths
-base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/")
+base_path <- path.expand("~/Documents/Github/Ghux_Ehv201/")
 ## Working directory
 setwd(base_path)
 ## Select subset of genes to look at. 
 
 ## Options: 
 #subs <- "virus"; sampSet <- "39samp" #
-subs <- "virus"; sampSet <- "29samp"  # 
+subs <- "virus"; sampSet <- "29samp"  #
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
 #subs <- "host";  sampSet <- "79samp" #
 
-res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
+#res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
+res_path <- paste0(base_path, "scratch-Aug2025/", subs, "/", sampSet, "/")
 (ext <- paste0("-", sampSet,"-", subs))
 
 trt_vir_cols<-c(paired_cols[1:2], paired_cols[7:8])
@@ -207,7 +215,7 @@ annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-virus-ext-20
 annot |> group_by(tx_id) |> tally() |> filter(n>1)
 annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
 }else if(subs == "host"){
-annot<-readRDS(paste0(base_path, "data/Annotations-", subs, "/annot-host-ext2-2026-07-14.rds"))
+annot<-data.table::fread(paste0(base_path, "data/Annotations-", subs, "/annot-host-less-2026-07-21.tsv.gz"))
 annot<-annot |> distinct()
 
 #check if empty
@@ -235,8 +243,8 @@ annot<-annot |> distinct()
 if(subs == 'host'){
 # test 
 tx_to_gene <- annot |> 
-  dplyr::select(tx_id, ensembl_gene_id,rowLabel, tx_name, NrTranscripts,everything())
-dup_annot <- tx_to_gene |> group_by(ensembl_gene_id) |> tally() |> filter(n>1) |> pull(ensembl_gene_id)
+  dplyr::select(tx_id, ensembl_gene_id,rowLabel, tx_name,everything())
+(dup_annot <- tx_to_gene |> group_by(ensembl_gene_id) |> tally() |> filter(n>1) |> pull(ensembl_gene_id))
 #tx_to_gene <- annot |> 
 #  dplyr::select(tx_id, locus_tag,rowLabel, tx_name, NrTranscripts,everything())
 
@@ -263,10 +271,9 @@ if(subs=="host"){
   salmon_gene_quants<-salmon_gene_quants |> select(sample_name:protein_name)
 }
 write_tsv(salmon_gene_quants, file=paste0(res_path, "tables/salmon-output-processed", ext, ".tsv"))
-system(glue::glue("gzip -f {res_path}tables/salmon-output-processed{ext}.tsv"))
+system(glue::glue("gzip -f --best {res_path}tables/salmon-output-processed{ext}.tsv"))
 }else{
-  salmon_gene_quants <- data.table::fread(paste0(res_path, "tables/salmon-output-processed", ext, ".tsv.gz")) |> 
-    as_tibble()
+  salmon_gene_quants <- data.table::fread(paste0(res_path, "tables/salmon-output-processed", ext, ".tsv.gz")) |> as_tibble()
 } #--
 
 gc()
@@ -282,12 +289,12 @@ gc()
 txi <- readRDS(file = paste0(res_path, "txi", ext,  ".rds"))
 nrow(txi$counts)
 
-if(TRUE){#run once then set to false
+#if(TRUE){#run once then set to false
 ## Make deseq matrix 
 ddsTxi <- DESeq2::DESeqDataSetFromTximport(
   txi = txi, colData = coldata, design = ~ batch + condition)
 
-#if(FALSE){ #run once and figure this out. Then set to false
+#if(TRUE){ #run once and figure this out. Then set to false
 
 ## Check for nr genes with very low counts
 rcounts<-counts(ddsTxi, normalized = F)
@@ -309,7 +316,7 @@ pcts_raw<-ggplot(df, aes(x=mean_counts,y=var_counts)) +
   geom_point() + 
   bb_theme()
 pcts_raw
-ggsave(paste0(res_path, "figs/VarByMeanCounts", ext, ".pdf"), device = cairo_pdf)
+#ggsave(paste0(res_path, "figs/VarByMeanCounts", ext, ".pdf"), device = cairo_pdf)
 #}
 ## Custom filtering
 ## http://127.0.0.1:14873/library/rnaseqGene/doc/rnaseqGene.html#pre-filtering-the-dataset
@@ -318,12 +325,12 @@ sum(keep)
 genes_keep_final<-rownames(txi$counts)[keep]
 rcounts<-rcounts[genes_keep_final,]
 ddsTxi <-ddsTxi[keep,]
-saveRDS(genes_keep_final, file = paste0(res_path, "genes_keep_final", ext, ".rds"))
+saveRDS(genes_keep_final, file = paste0(res_path, "genes-keep-final", ext, ".rds"))
 #save this object for deseq2 analyses
-saveRDS(ddsTxi, paste0(res_path, "deseq_glm_ddsTxi", ext, ".rds"))
-}else{
-ddsTxi<-readRDS(paste0(res_path, "deseq_glm_ddsTxi", ext, ".rds"))
-}
+saveRDS(ddsTxi, paste0(res_path, "deseq-glm-ddsTxi", ext, ".rds"))
+#}else{
+#ddsTxi<-readRDS(paste0(res_path, "deseq_glm_ddsTxi", ext, ".rds"))
+#}
 
 gc()
 ## make a filtered version salmon_gene_quants ----
@@ -339,48 +346,116 @@ salmon_gene_quants_filt <-
 salmon_gene_quants_filt <- left_join(salmon_gene_quants_filt, tib)
 
 write_tsv(salmon_gene_quants, file=paste0(res_path, "tables/salmon-output-processed-filt", ext, ".tsv"))
-system(glue::glue("gzip -f {res_path}tables/salmon-output-processed-filt{ext}.tsv"))
+system(glue::glue("gzip -f --best {res_path}tables/salmon-output-processed-filt{ext}.tsv"))
 
 #salmon_gene_quants_filt <- data.table::fread(paste0(res_path, #"salmon_gene_quants_filt", ext, ".gz")) |> as_tibble()
 
 ## Summarise gene expression for genes kept
-salmon_gene_quants_filt |> 
-  group_by(timePt) |> 
-  summarise(Total_M_Reads = round(sum(n_reads),1)) |> 
-  ungroup() |> 
-  mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),5)) |>
-  gt() |>
-  fmt_scientific(Total_M_Reads) |>
-  gtsave(paste0(res_path, "figs/MillionReadsPerTimept_AftFilt", ext, ".png"), expand = 10)
 
-salmon_gene_quants_filt |> 
+foot<-glue::glue("In millions of reads. Only reads mapped to the filtered set of genes in {subs} ({sampSet}) are shown.")
+
+if(sampSet != "29samp"){
+tab_1<-salmon_gene_quants_filt |> 
+  group_by(timePt) |> 
+  summarise(`Mapped reads` = round(sum(n_reads),1)) |> 
+  ungroup() |> 
+  mutate(Proportion = round(`Mapped reads`/sum(`Mapped reads`),2)) |>
+  rename(`Time Point` = timePt) |>
+  mutate(`Time Point` = c("45min", "3h", "8h", "24h")) |>
+  gt()
+}else{
+ tab_1<-salmon_gene_quants_filt |> 
+  group_by(timePt) |> 
+  summarise(`Mapped reads` = round(sum(n_reads),1)) |> 
+  ungroup() |> 
+  mutate(Proportion = round(`Mapped reads`/sum(`Mapped reads`),2)) |>
+  rename(`Time Point` = timePt) |>
+  mutate(`Time Point` = c("3h", "8h", "24h")) |>
+  gt() 
+  
+}
+tab_1|>
+  opt_all_caps() |>
+  cols_width(`Time Point` ~ px(90),
+             `Mapped reads` ~ px(110),
+             `Proportion` ~ px(100)) |>
+  tab_options(
+    column_labels.background.color = "gray"
+  ) |>
+  fmt_scientific(`Mapped reads`) |>
+  tab_footnote(footnote = foot, location = cells_column_labels(`Mapped reads`)) |>
+  cols_align(align = "left") |>
+  
+  
+   gtsave(paste0(res_path, "tables/SalmonMillionReadsPerTimept-AftFilt", ext, ".docx"))
+
+tab_2<-salmon_gene_quants_filt |> 
   group_by(trt) |> 
   summarise(Total_M_Reads = sum(n_reads)) |> 
   ungroup() |> 
-  mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),3)) |>
-  gt() |>
-  fmt_scientific(Total_M_Reads) |>
-  gtsave(paste0(res_path, "figs/MillionReadsPerTreatment_AftFilt", ext, ".png"), expand = 10)
+  mutate(Proportion = round(Total_M_Reads/sum(Total_M_Reads),3)) |>
+  rename(`Mapped reads`= Total_M_Reads,
+         Treatment = trt) |>
+  gt() 
+  
+tab_2 |>  opt_all_caps() |>
+  cols_width(`Treatment` ~ px(90),
+             `Mapped reads` ~ px(110),
+             `Proportion` ~ px(100)) |>
+  tab_options(
+    column_labels.background.color = "gray"
+  ) |>
+  fmt_scientific(`Mapped reads`) |>
+  tab_footnote(footnote = foot, location = cells_column_labels(`Mapped reads`)) |>
+  cols_align(align = "left") |>
+  gtsave(paste0(res_path, "tables/SalmonMillionReadsPerTreatment-AftFilt", ext, ".docx"))
 
 if(subs == "host"){
-  salmon_gene_quants_filt |> 
+
+  tab_3<-salmon_gene_quants_filt |> 
   group_by(virus) |> 
-  summarise(Total_M_Reads = sum(n_reads)) |> 
+  summarise(Total_M_Reads = round(sum(n_reads),2)) |> 
   ungroup() |> 
-  mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),3)) |>
-  gt() |>
-    fmt_scientific(Total_M_Reads) |>
-  gtsave(paste0(res_path, "figs/MillionReadsPer_Vir_AftInf", ext, ".png"), expand = 10)
+  mutate(Proportion = round(Total_M_Reads/sum(Total_M_Reads),3)) |>
+    rename(`Mapped reads`= Total_M_Reads,
+         Virus = virus) |>
+    gt() 
   
-  salmon_gene_quants_filt |> 
+tab_3 |>  
+ opt_all_caps() |>
+  cols_width(`Virus` ~ px(90),
+             `Mapped reads` ~ px(110),
+             `Proportion` ~ px(100)) |>
+  tab_options(
+    column_labels.background.color = "gray"
+  ) |>
+  fmt_scientific(`Mapped reads`) |>
+  tab_footnote(footnote = foot, location = cells_column_labels(`Mapped reads`)) |>
+  cols_align(align = "left")|>
+  gtsave(paste0(res_path, "tables/SalmonMillionReadsPerVir-AftFilt", ext, ".docx"))
+#  
+tab_4<-salmon_gene_quants_filt |> 
   group_by(timePt, trt, virus) |> 
-  summarise(Total_M_Reads = round(sum(n_reads),1)) |> 
+  summarise(Total_M_Reads = round(sum(n_reads),2)) |> 
   ungroup() |> 
-  mutate(Prop = round(Total_M_Reads/sum(Total_M_Reads),5)) |>
-    arrange(desc(Prop)) |>
-  gt() |>
-    fmt_scientific(Total_M_Reads) |>
-    gtsave(paste0(res_path, "figs/MillionReadsPerCondition", ext, ".png"), expand = 10)
+  mutate(Proportion = round(Total_M_Reads/sum(Total_M_Reads),3)) |>
+    arrange(desc(Proportion)) |>
+    tidyr::unite("Condition", c("trt", "virus", "timePt")) |>
+    rename(`Mapped reads`= Total_M_Reads) |>
+  arrange(desc(Proportion)) |>
+  gt() 
+tab_4|>
+    opt_all_caps() |>
+  cols_width(`Condition` ~ px(110),
+             `Mapped reads` ~ px(110),
+             `Proportion` ~ px(100)) |>
+  tab_options(
+    column_labels.background.color = "gray"
+  ) |>
+  fmt_scientific(`Mapped reads`) |>
+  tab_footnote(footnote = foot, location = cells_column_labels(`Mapped reads`)) |>
+  cols_align(align = "left") |>
+    gtsave(paste0(res_path, "tables/SalmonMillionReadsPerCondition-AftFilt", ext, ".docx"))
   
 }
 
@@ -507,7 +582,8 @@ gc()
 
 ## http://127.0.0.1:14873/library/rnaseqGene/doc/rnaseqGene.html#pre-filtering-the-dataset
 ## http://127.0.0.1:14019/library/rnaseqGene/doc/rnaseqGene.html
-## For genes with high counts: both VST and rlog will give similar result to the ordinary log2 transformation of normalized counts. For genes with lower counts, the values are shrunken towards a middle value.  VST or rlog-transformed data then become approximately homoskedastic (more flat trend in the meanSdPlot), and can be used directly for computing distances between samples, making PCA plots, or as input to downstream methods which perform best with homoskedastic data.
+## For genes with high counts: both VST and rlog will give similar result to the ordinary log2 transformation of normalized counts. For genes with lower counts, the values are shrunken towards a middle value.  
+##VST or rlog-transformed data then become approximately homoskedastic (more flat trend in the meanSdPlot), and can be used directly for computing distances between samples, making PCA plots, or as input to downstream methods which perform best with homoskedastic data.
 
 ## Calculate size factors ----
 dds <- ddsTxi |> estimateSizeFactors(type = sftype)
@@ -518,7 +594,7 @@ nsub <- min(c(sum(rowMeans(counts(dds, normalized=T))>5), 1000))
 
 
 if(TRUE){ #run once to figure this out, then set to false
-rld_blind <- DESeq2::rlog(dds, fitType = ftype, blind = T) 
+rld_blind <- DESeq2::rlog(dds, fitType = ftype, blind = T)
 vsd_blind<-DESeq2::vst(dds, fitType = ftype, blind = T, nsub = nsub)
 rld <- DESeq2::rlog(dds, fitType = ftype, blind = F)
 vsd <- DESeq2::vst(dds, fitType = ftype, blind = F, nsub = nsub)
@@ -608,7 +684,6 @@ gc()
 # Heatmaps
 
 ```{r heatmaps, echo = T, warnings = FALSE, fig.showtext = T,fig.width = 12}
-if(TRUE){
 ## Proportion of genes to use in each case ----
 if(subs == 'virus'){
 nprop <-0.95
@@ -617,6 +692,9 @@ ntop <- round(nrow(dds)*nprop)
 nprop<-0.50
 ntop <-round(nprop*nrow(dds))
 }
+if(TRUE){
+
+
 
 if(subs == 'virus'){
 df2 <- as.data.frame(colData(dds)[,c("treatment","timePt")])
@@ -653,7 +731,7 @@ colnames(sampleDistMatrix)<- rownames(sampleDistMatrix)
 pheatmap1<-MyPheatmapDist(sampleDistMatrix, clustering_distance_rows = sampleDists, clustering_distance_cols = sampleDists, main = paste0("Sample Distances (", s, " counts)"))
 #pheatmap1<-pheatmap::pheatmap(sampleDistMatrix, color = prgn, fontsize = 12, fontsize_row = 6, fontsize_col = 6, border_color = NA, clustering_distance_rows = sampleDists, clustering_distance_cols = sampleDists, main = paste0("Sample Distances (", s, " counts)"))
 print(pheatmap1)
-save_pheatmap_png(pheatmap1,paste0(res_path, "figs/deseq_heatmap1_sample_dists_", s, ext, ".png"), width=1600)
+save_pheatmap_png(pheatmap1,paste0(res_path, "figs/deseq-heatmap1-sample-dists_", s, ext, ".png"), width=1600)
 # Calculate correlation between samples
 # https://deeptools.readthedocs.io/en/develop/content/tools/plotCorrelation.html
 ## Spearman: does not assume normality though is also less sensitive.
@@ -666,7 +744,7 @@ ddist<-as.dist(ddist)
 #pheatmap2<-pheatmap::pheatmap(dmat, color = prgn, fontsize = 12, fontsize_row = 6, fontsize_col = 6, border_color = NA,clustering_distance_rows = ddist, clustering_distance_cols = ddist, cluster_rows = T, cluster_cols = T, main = paste0("Correlation of ",s, " counts"))
 pheatmap2<-MyPheatmapDist(dmat,clustering_distance_rows = ddist, clustering_distance_cols = ddist, main = paste0("Correlation of ",s, " counts"))
 print(pheatmap2)
-save_pheatmap_png(pheatmap2,paste0(res_path, "figs/deseq_heatmap2_corr_", s, ext, ".png"), width=1600)
+save_pheatmap_png(pheatmap2,paste0(res_path, "figs/deseq-heatmap2-corr-", s, ext, ".png"), width=1600)
 }
 
 # Based on this post (https://support.bioconductor.org/p/101693/)and fig S17 in the deseq paper, I feel supported in my decision to use rlog and euclidean distances for the paper, given that our size factors have huge variability.
@@ -692,12 +770,12 @@ pheatmap3<-MyPheatmapDist(samplePoisDistMatrix2,
          clustering_distance_rows = poisdd$dd,
          clustering_distance_cols = poisdd$dd,
         main = paste0("Poisson distance of raw counts"))
-#samp39, 431 genes: clear t1 cluster, nothing else clear
+
 save_pheatmap_png(pheatmap3,paste0(res_path, "figs/deseq_heatmap3_PoisDistRaw", ext,".png"), width=1600)
 
 ## Gene clustering ---------
 ## https://bioconductor.org/packages/release/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html#the-variance-stabilizing-transformation-and-the-rlog
-if(FALSE){#not very useful atm.
+if(TRUE){#not very useful atm.
 library("genefilter")
 
 top50varGenesVsdB <- head(order(genefilter::rowVars(assay(vsd_blind)), decreasing = TRUE), 50)
@@ -711,7 +789,7 @@ library(ggVennDiagram)
 temp_list<- list(vstB = top50varGenesVsdB, vstNB = top50varGenesVsdNB,  rldB = top50varGenesRldB, rldNB = top50varGenesRldNB)
 cat("Overlap of top 50 var genes in the four sets of variance stabilizing transformation")
 ggVennDiagram(temp_list, force_upset = T)
-ggsave(paste0(res_path, "figs/Upset_VarStabTop50Genes.pdf"), device = cairo_pdf)
+ggsave(paste0(res_path, "figs/deseq-upset-VarStabTop50Genes.pdf"), device = cairo_pdf)
 ## prepare heatmaps
 
 mat_rldB  <- assay(rld_blind)[top50varGenesRldB, ]
@@ -725,7 +803,6 @@ rownames(mat_rldNB)<-tx_to_gene|> dplyr::filter(locus_tag %in% rownames(mat_rldN
 mat_vsdNB  <- assay(vsd)[top50varGenesVsdNB, ]
 rownames(mat_vsdNB)<-tx_to_gene|> dplyr::filter(locus_tag %in% rownames(mat_vsdNB)) |> pull(rowLabel)
 
-remove(annot) #free up memory
 gc()
 rldB50_heat<-MyPheatmapClust(mat_rldB,
                    main = paste0("Top 50 var genes (rld blind)"))
@@ -752,7 +829,7 @@ save_pheatmap_png(vsdNB50_heat,paste0(res_path, "figs/deseq_heatmap_", "top50Var
 ## (PCA) works best for data that generally has the same range of variance at different ranges of the mean values
 #PCAs
 #for virus 39samp or host:
-
+if(TRUE){
 metadata <- colData(dds)[,-1]
 if(sampSet != "39samp"){
 mat <- assay(vsd_blind)
@@ -849,10 +926,10 @@ ploadings
 ggsave(paste0(res_path, "figs/deseq_loadingsplot",ext,".pdf"), width = 10, height = 8, device=cairo_pdf)
 
 #----
-pdf(paste0(
+svg(paste0(
   res_path, "figs/deseq_PCAbiplots_condition",
   ext,
-  "_0.pdf"
+  "_0.svg"
 ))
 ppca0a <- PCAtools::biplot(
   p,
@@ -885,7 +962,7 @@ ppca0b <- PCAtools::biplot(
 )
 #
 ppca0a
-ppca0b
+#ppca0b
 dev.off()
 
 
@@ -945,10 +1022,8 @@ ggsave(
   paste0(
     res_path, "figs/deseq_PCAbiplots_condition",
     ext,
-    "_1.pdf"
-  ), width = 6,
-  device = cairo_pdf
-)
+    "_1.svg"
+  ))
 
 
 #by timept
@@ -964,10 +1039,8 @@ ggsave(
   paste0(
     res_path, "figs/deseq_PCAbiplots_timepoint",
     ext,
-    ".pdf"
-  ),width = 6,
-  device = cairo_pdf
-)
+    ".svg"
+  ))
 #p2 + plot_annotation(titl
 #by trt_vir
 pplot3a <- pplot1a + stat_ellipse(aes(group = trt_vir), linetype = 2)
@@ -980,10 +1053,11 @@ ggsave(
   paste0(
    res_path, "figs/deseq_PCAbiplots_trt_vir",
     ext,
-    ".pdf"
-  ),width = 6,
-  device = cairo_pdf
-)
+    #".pdf"
+   ".svg"))
+  #),width = 6,
+ # device = cairo_pdf
+#)
 
 #by virus
 pplot4a <- pplot1a + stat_ellipse(aes(group = virus), linetype = 2)
@@ -994,9 +1068,10 @@ p4
 ggsave(paste0(
   res_path, "figs/deseq_PCAbiplots_virus",
   ext,
-  ".pdf"
-),width =6,
-device = cairo_pdf)
+   ".svg"))
+ # ".pdf"
+#),width =6,
+#device = cairo_pdf)
 #by treatment
 pplot5a <- pplot1a + stat_ellipse(aes(group = treatment), linetype = 2)
 pplot5a_nolg <- pplot5a + theme(legend.position = "none")
@@ -1008,19 +1083,23 @@ ggsave(
   paste0(
     res_path, "figs/deseq_PCAbiplots_treatment",
     ext,
-    ".pdf"
-  ), width = 6,
-  device = cairo_pdf
-)
+    ".svg"))
+    #".pdf"
+  #), width = 6,
+  #device = cairo_pdf
+#)
 
 
-mylabs <- colnames(mat)
+mylabs <- colnames(mat) #vsd_blind or rld_blind (39samp)
 
 glMDSPlot(mat, labels = mylabs, groups = coldata[, c("trt_vir", "timePt")], path = paste0(res_path, "figs"), top = ntop, gene.selection = "common")
 
 #to do: figure out why this var explianed is different
 Glimma::glimmaMDS(dds, log = T, prior.count = 2,
                   top = ntop, gene.selection = "common",html = paste0(res_path, "figs/glimmaMDS", ext, ".html"))
+
+Glimma::glimmaMDS(assay(vsd_blind), top=ntop,groups = metadata)
+}
 #}
 ###########
 ```
@@ -1033,7 +1112,7 @@ Glimma::glimmaMDS(dds, log = T, prior.count = 2,
 remove(dds)
 gc()
 # Run deseq2 GLM ----
-if(TRUE){
+if(FALSE){
 #ddsTxi <- DESeq2::DESeqDataSetFromTximport(txi = txi, colData = coldata, design = ~ batch + condition)
 #ddsTxi <- ddsTxi[genes_keep_final,]
 dds<-ddsTxi |> 
@@ -1065,12 +1144,12 @@ remove(dds_test)
 }
 gc()
 dim(dds)
-saveRDS(dds, file = paste0(res_path,"deseq_dds", ext, ".rds"))
+saveRDS(dds, file = paste0(res_path,"deseq-dds", ext, ".rds"))
 genes_keep_final2<-rownames(dds)
 #save 
-saveRDS(genes_keep_final2, paste0(res_path, "genes_keep_final2", ext, ".rds"))
+saveRDS(genes_keep_final2, paste0(res_path, "genes-keep-final2", ext, ".rds"))
 }else{
-dds<-readRDS(paste0(res_path,"deseq_dds", ext, ".rds"))
+dds<-readRDS(paste0(res_path,"deseq-dds", ext, ".rds"))
 genes_keep_final2<-rownames(dds)
 }
 gc()
@@ -1079,7 +1158,7 @@ gc()
 #https://support.bioconductor.org/p/9135244/
 #https://support.bioconductor.org/p/97676/
 
-if(TRUE){ #run once (optional sanity check)
+if(FALSE){ #run once (optional sanity check)
 nm <- assays(dds)[["avgTxLength"]]
 sf_deseq <- estimateSizeFactorsForMatrix(counts = counts(dds) / nm, type = sftype)
 #plot(x=colMeans(counts(ddsTxi)), y=sf_deseq)
@@ -1108,20 +1187,20 @@ identical(counts(dds, normalize = T), counts(dds2, normalize = T))
 # LRT
 
 ```{r, lrt, fig.width = 12, show.test = T}
-if(TRUE){
+if(FALSE){
 if(subs == 'host'){
 ddsTxiLRT <- DESeq2::DESeqDataSetFromTximport(
      txi = txi, colData = coldata, design = ~ batch + timePt + trt_vir + timePt:trt_vir)
 ddsTxiLRT<-ddsTxiLRT[genes_keep_final2,]
 ddsLRT <- ddsTxiLRT |>  
   estimateSizeFactors(type = sftype) |> 
-  #wont impose ftype here because glmGamPoi might be better
-  estimateDispersions()
+  #wont impose ftype here (for 39samp) because glmGamPoi might be better
+  estimateDispersions(fitType = ftype)
 
 ddsLRT <- nbinomLRT(ddsLRT, reduced = ~ batch + timePt + trt_vir, maxit = 500)
 rem<-which(mcols(ddsLRT)$fullBetaConv==F)
 if(length(rem)>1){
-ddsLRT <- nbinomLRT(ddsLRT[-rem, ], reduced = ~ batch + timePt, maxit = 500)
+ddsLRT <- nbinomLRT(ddsLRT[-rem, ], reduced = ~ batch + timePt + trt_vir, maxit = 500)
 }
 }else{
 ddsTxiLRT <- DESeq2::DESeqDataSetFromTximport(
@@ -1132,7 +1211,7 @@ ddsLRT <- ddsTxiLRT |>
   #wont impose ftype here because glmGamPoi might be better
   estimateDispersions()
 
-ddsLRT <- nbinomLRT(ddsLRT, reduced = ~ batch + timePt, maxit = 500)
+ddsLRT <- nbinomLRT(ddsLRT, reduced = ~ batch + timePt + treatment, maxit = 500)
 rem<-which(mcols(ddsLRT)$fullBetaConv == F)
 if(length(rem)>0){
 ddsLRT <- nbinomLRT(ddsLRT[-rem, ], reduced = ~ batch + timePt + treatment, maxit = 500)
@@ -1183,67 +1262,140 @@ saveRDS(subsetCL, file = paste0(res_path, "deseq_ContsOfInterest", ext, ".rds"))
 ## Function to run all contrasts ----
 conts<-unname(all_contrasts[subsetCL])
 
-#register(MulticoreParam(4))
-run_glm <- function(i = 1, alpha2 = 0.05, cont = NULL) {
+run_glm <- function(i = NULL,
+                    alpha2 = 0.05,
+                    cont = NULL) {
   cont <- conts[[i]]
   print(cont)
-  res<-results(dds, contrast = cont,pAdjustMethod = "BH", alpha = alpha2)
+  #using BH here just for comparison purposes.
+  res <- results(dds,
+                 contrast = cont,
+                 pAdjustMethod = "BH",
+                 alpha = alpha2)
   cat(summary(res))
-  rest<-as_tibble(rownames = "locus_tag", res )
-   ## independent hyp weighting (increases power)
-  p1<-rbind(
-    data.frame(pvalue = rest$pvalue,
-    covariate = rank(rest$baseMean) / nrow(rest),covariate_type = "base mean"),
+  rest <- as_tibble(rownames = "locus_tag", res)
+  ## independent hypothesis weighting (increases power)
+  
+  p0<- rest |>
+ ggplot(aes(x=pvalue)) +
+  geom_histogram(aes(x =pvalue,y=after_stat(density)),binwidth = 0.05, boundary = 0, color="white")+
+   #xlim(0,1)+
+   ggtitle("Raw p-values")+
+  # ggtitle(paste0(cont, ": raw p-values")) +
+    bb_theme()
+
+  p1 <- rbind(
     data.frame(
       pvalue = rest$pvalue,
-      covariate = rank(rest$locus_tag) / nrow(rest),covariate_type = "locus_tag")) |> 
-    ggplot(aes(x = covariate, y = -log10(pvalue))) + 
+      covariate = rank(rest$baseMean) / nrow(rest),
+      covariate_type = "base mean"
+    ),
+    data.frame(
+      pvalue = rest$pvalue,
+      covariate = rank(rest$locus_tag) / nrow(rest),
+      covariate_type = "locus_tag"
+    )
+  ) |>
+    ggplot(aes(x = covariate, y = -log10(pvalue))) +
     geom_hex(bins = 100) +
     facet_grid(. ~ covariate_type) + ylab(expression(-log[10] ~ p)) +
     ggtitle(paste(cont[-1], collapse = "v")) +
     theme_minimal()
-  print(p1)
-  ggsave(paste0(res_path, "figs/IHWDiagPlot", paste0(cont[-1], collapse = "v"), ".pdf"))
+  
+  p2<-ggplot(rest, aes(x=padj)) +
+  geom_histogram(aes(x =padj,y=after_stat(density)),binwidth = 0.05, boundary = 0, color="white")+
+   # xlim(0,1)+
+   ggtitle(paste0("padj (BH)")) +
+    bb_theme()
+  
   require(IHW)
   ## http://127.0.0.1:25392/library/ IHW/doc/introduction_to_ihw.html#fdr-control
   
-  resIHW<-results(dds, contrast = cont, pAdjustMethod = "BH", alpha = alpha2, filterFun = ihw)
+  resIHW <- results(
+    dds,
+    contrast = cont,
+    pAdjustMethod = "BH",
+    alpha = alpha2,
+    filterFun = ihw
+  )
   print(summary(resIHW))
-  cat("Correlation between BH and IHW padj:", stats::cor(res$padj, resIHW$padj), "\n")
-  ihwRest<-as_tibble(rownames = "locus_tag", resIHW )
-  #print(summary(resIHW))
-
-  #print(ihwRes)
+  cat("Correlation between BH and IHW padj:",
+      stats::cor(res$padj, resIHW$padj),
+      "\n")
+  ihwRest <- as_tibble(rownames = "locus_tag", resIHW)
+  
   ## compare to see if IHW improved power
   cat("ihw2 rejections:", rejections(metadata(resIHW)$ihwResult), "\n")
-  cat("BH rejections:", sum(rest$padj<=alpha2, na.rm=T), "\n")
+  cat("BH rejections:", sum(rest$padj < alpha2, na.rm = T), "\n")
   #cat("BH rejections:", sum(resLFC$padj<=alpha, na.rm=T), "\n")
-  cat("n = ", c(nbins(metadata(resIHW)$ihwResult), ", k = ", nfolds(metadata(resIHW)$ihwResult)))
+  cat("n = ", c(
+    nbins(metadata(resIHW)$ihwResult),
+    ", k = ",
+    nfolds(metadata(resIHW)$ihwResult)
+  ))
   #sanity check
-  # if(FALSE){
+  # if(TRUE){
   # ihwRes2<-ihw(pvalue ~ baseMean,  data = rest, alpha = alpha)
   # ihwRest2<-as.data.frame(ihwRes2 )
   # ihwRest2$locus_tag<-rest$locus_tag
   # cor(resIHW$padj, ihwRest2$adj_pvalue)
   # }
   ## lfc shrinkage
-  resLFC <- lfcShrink(dds,contrast = cont, type = "ashr", res = resIHW)
+  resLFC <- lfcShrink(dds,
+                      contrast = cont,
+                      type = "ashr",
+                      res = resIHW)
   ## combine all
-  restf <- as_tibble(rownames = "locus_tag", resLFC) |> 
+  restf <- as_tibble(rownames = "locus_tag", resLFC) |>
     rename(log2FCshrink_ashr = log2FoldChange) |>
     rename(lfcSE_ashr = lfcSE) |>
     dplyr::select(locus_tag, log2FCshrink_ashr, lfcSE_ashr) |>
     left_join(rest) |>
-    mutate(contrast = paste0(cont[2], "v", cont[3]), .after = "locus_tag") |> 
+    mutate(contrast = paste0(cont[2], "v", cont[3]), .after = "locus_tag") |>
     mutate(padjIHW = ihwRest$padj, .after = padj) |>
     left_join(tx_to_gene |> rename(locus_tag = locus_tag), by = 'locus_tag') |>
-    dplyr::select(contrast, locus_tag,tx_id, log2FCshrink_ashr, padjIHW, padjBH = padj, pvalueRaw = pvalue, everything()) |> 
+    dplyr::select(
+      contrast,
+      locus_tag,
+      tx_id,
+      log2FCshrink_ashr,
+      padjIHW,
+      padjBH = padj,
+      pvalueRaw = pvalue,
+      everything()
+    ) |>
     arrange(padjIHW)
+  p3<-ggplot(restf, aes(x=padjIHW)) +
+ geom_histogram(aes(x =padjIHW,y=after_stat(density)),binwidth = 0.05, boundary = 0, color="white")+
+   # xlim(0,1)+
+   ggtitle(paste0("padj (IHW)")) +
+    bb_theme()
+  restf$baseMeanGroup <- groups_by_filter(rest$baseMean, 3)  
+  p4<-restf |> ggplot(aes(x=pvalueRaw)) + 
+  geom_histogram(aes(x =pvalueRaw,y=after_stat(density)),binwidth = 0.05, boundary = 0, color="white") +
+  facet_wrap( ~ baseMeanGroup, nrow = 2) +
+  bb_theme() +
+  ggtitle("Bins")
+  pdf(paste0(
+    res_path,
+    "figs/IHWDiagPlot",
+    paste0(cont[-1], collapse = "v"),ext,
+    ".pdf"
+  ))
+  print(p0)
+  Sys.sleep(1)
+  print(p4)
+  Sys.sleep(1)
+  print(p2)
+  Sys.sleep(1)
+  print(p3)
+  Sys.sleep(1)
+  print(p1)
+  dev.off()
   return(restf)
 }
 
-
-if(TRUE){ #only run this once
+if(FALSE){ #only run this once
 #option 1: 
 #furrr::plan(multisession, workers = parallelly::availableCores()-1)
 #glm_all <- furrr::future_map_dfr(1:length(all_conts), run_glm) 
@@ -1268,18 +1420,61 @@ saveRDS(glm_subset, paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".r
 }else{
 glm_subset<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 }
+# Sep-3,2026: write table
+if(sampSet=="29samp"){
+
+baseMeanPerLvl <- sapply( levels(dds$condition), function(lvl) rowMeans( counts(dds,normalized=TRUE)[,dds$condition == lvl, drop=F], na.rm = TRUE )) |>
+                  as_tibble(rownames = "locus_tag")
+vstMeanPerLvl <- sapply( levels(vsd$condition), function(lvl) rowMeans( assay(vsd[,vsd$condition == lvl, drop=F]), na.rm = TRUE )) |>
+  as_tibble(rownames = "locus_tag")
+
+tb.list <- list() # initialize list to receive tibbles
+
+tb.list <- c(
+  tb.list,
+  list(samples = as.data.frame(colData(dds))),
+  list(raw_counts = left_join(
+    tx_to_gene,
+    as_tibble(counts(dds, normalized = F), rownames = "locus_tag")
+  )),
+  list(
+    normalized_counts = left_join(
+    tx_to_gene,
+      baseMeanPerLvl,
+      by = "locus_tag"
+    ) |>
+      left_join(as_tibble(counts(dds, normalized = T), rownames = "locus_tag"))
+  ),
+  list(
+    variance_stabilized_counts = left_join(
+       tx_to_gene,
+      vstMeanPerLvl,
+      by = "locus_tag"
+    ) |>
+      left_join(as_tibble(assay(vsd), rownames = "locus_tag"))
+  )
+)
+tb.list<-c(tb.list, lapply(glm_subset, function(x) x |> select(contrast:rowLabel)))
+file<-paste0(res_path, "tables/deseq_glm_CountsContsOfInterest", ext, "-Aug2025.xlsx")
+tab<-xlsx::write.xlsx(tb.list[[1]], file = file, sheet = names(tb.list)[1])
+for(i in 2:7){
+  xlsx::write.xlsx(tb.list[[i]], file = file, sheet = names(tb.list)[i], append=T)
+}
+
 tab_header<-paste0("Table 1. DEGs per contrast (", subs, ", ", sampSet, ")")
 padj<-0.05
-lfc<-2
-glm_subset2<-do.call(rbind,glm_subset)
+#lfc<-2
+lfc<-0
+glm_subset2 <- do.call(rbind,glm_subset)
+glm_subset2 <- glm_subset2 |> rename(log2FC = log2FoldChange)
 tab0<-glm_subset2 |> 
-  #filter(padjIHW <= padj) |> 
-  dplyr::filter(padjIHW <= padj) |>
-  dplyr::filter(abs(log2FCshrink_ashr)>=lfc)  |> 
+  #filter(padjIHW < padj) |> 
+  dplyr::filter(padjIHW < padj) |>
+  dplyr::filter(abs(log2FCshrink_ashr)>lfc)  |> 
   group_by(contrast, DIR) |> 
   tally() |> 
-  pivot_wider(names_from = DIR, values_from = n) |>
-  separate(contrast, into = c("exp", "cntl"), sep = "v",remove = F) 
+  pivot_wider(names_from = DIR, values_from = n) 
+ # separate(contrast, into = c("exp", "cntl"), sep = "v",remove = T) 
 if(sum(colnames(tab0)=="UP")==1){
   tab0<-tab0 |> mutate(UP = ifelse(is.na(UP), 0, UP))
 }else{
@@ -1290,18 +1485,27 @@ if(sum(colnames(tab0)=="DOWN")==1){
 }else{
   tab0<-tab0 |> mutate(DOWN = 0)
 }
-tab0<-tab0 |> mutate(Total = DOWN + UP) |> select(-c(exp, cntl)) |> arrange(desc(Total)) |>
-  left_join(glm_subset2 |> group_by(contrast, DEG=padjIHW <= padj & abs(log2FCshrink_ashr)>=lfc) |> tally(name = "unchanged") |> filter(DEG==F) |> select(contrast, unchanged))
 
-tab0<-tab0|>select(contrast, `Downregulated` = DOWN, `Upregulated` = UP, Unchanged = unchanged)
 
-tab1<-tab0  |> gt() |>
-  tab_header(title =tab_header)|>
+tab0<-tab0 |> mutate(Total = DOWN + UP) |> 
+  #select(-c(exp, cntl)) |> 
+  arrange(desc(Total)) |>
+  left_join(glm_subset2 |> group_by(contrast, DEG=padjIHW < padj & abs(log2FCshrink_ashr)>lfc) |> tally(name = "unchanged") |> filter(DEG==F) |> select(contrast, unchanged))
+
+tab0<- tab0 |>
+  select(contrast, `Downregulated` = DOWN, `Upregulated` = UP, Unchanged = unchanged) |> ungroup()
+tab0
+
+tab1 <- tab0  |> gt() |>
+  tab_header(title = tab_header)|>
   tab_footnote(
-    footnote=paste0("DESeq2, padjIHW <= ", padj, "; |logFC_shrink|>=", lfc))
+    footnote=paste0("DESeq2, padjIHW < ", padj, "; |log2FC_shrink|>", lfc))
 tab1
 tab1 |>
-  gtsave(paste0(res_path, "tables/DEGsPerContOfInterestp",padj,"lfc", lfc, ".png"),expand = 12)
+  gtsave(paste0(res_path, #"tables/DEGsPerContOfInterestp",padj,"lfc", lfc, ".png"),expand = 12)
+  "tables/DEGsPerContOfInterestp",padj,"lfc", lfc, ".docx"))
+saveRDS(tab1, paste0("data/DEGsPerContOfInterest",ext, ".rds"))
+
 # End of run once -------
 ```
 
@@ -1313,29 +1517,33 @@ tab1 |>
 gc()
 remove(glm_subset2)
 gc()
-glm_subset<-lapply(glm_subset, function(x) x |> select(contrast:rowLabel))
+glm_subset2<-lapply(glm_subset, function(x) x |> select(contrast:rowLabel))
 gc()
 
-test<-lapply(glm_subset, function(x){
+test<-lapply(glm_subset2, function(x){
  j<-x$contrast[1]
  message("Contrast:", j)
  write_tsv(x, file = paste0(res_path, "tables/deseq-",j, "-", sampSet, ".tsv"))
   gc()
-  system(glue::glue("gzip -f {res_path}tables/deseq-{j}-{sampSet}.tsv"))
+  system(glue::glue("gzip -f --best  {res_path}tables/deseq-{j}-{sampSet}.tsv"))
 })
 
 #just degs ---
 test2<-lapply(glm_subset, function(x){
  j<-x$contrast[1]
  message("Contrast:", j)
- x |> dplyr::filter(padjIHW < 0.05) |> dplyr::filter(abs(log2FCshrink_ashr)>=2) |> group_by(DIR) |> arrange(padjIHW, by_group=T) |> write_tsv(file = paste0(res_path, "tables/deseq-DEGs-",j, ext, ".tsv"))
+ x |> dplyr::filter(padjIHW < 0.05) |> dplyr::filter(abs(log2FCshrink_ashr)>=2) |> arrange(padjIHW, by_group=T) |> write_tsv(file = paste0(res_path, "tables/deseq-DEGs-",j, ext, ".tsv"))
   gc()
-  system(glue::glue("gzip -f {res_path}tables/deseq-DEGs-{j}{ext}.tsv"))
+ # system(glue::glue("gzip -f {res_path}tables/deseq-DEGs-{j}{ext}.tsv"))
 })
 
 
 #custom function
-lapply(subsetCL, function(x) VolcanoFunc(cont = x, lfc = 1.5))
+if(subs=="virus"){
+lapply(subsetCL, function(x) VolcanoFunc(cont = x, lfc = c(1,0), subs = subs))
+}else{
+  lapply(subsetCL, function(x) VolcanoFunc(cont = x, lfc = c(2,1), subs = subs))
+}
 ## End ---
 sessionInfo()
 

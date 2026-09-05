@@ -10,7 +10,7 @@ showtext::showtext_opts(dpi=300)
 #systemfonts::fonts_as_import(family = "Roboto Condensed")
 #systemfonts::match_font("Roboto Condensed")
 #base_path <- "~/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/BitaLab_not_shared/Research/rna-seq-host-virus/data_and_res_gh_repo/"
-base_path<-"~/Documents/GitHub/Ehux_Ehv201/scratch/"
+base_path<-"~/Documents/GitHub/Ghux_Ehv201/scratch-August2025/"
 
 
 # Template ----
@@ -37,18 +37,20 @@ remove(list=ls())
 #showtext::showtext_opts(dpi=300)
 source("dge/Functions.R")
 source("dge/plot_funcs.R")
-base_path <- path.expand("~/Documents/Github/Ghux_Ehv201/scratch/")
+base_path <- path.expand("~/Documents/Github/Ghux_Ehv201/scratch-Aug2025/")
 subs <- "virus"
 sampSet <- "29samp" #
 (res_path <- path.expand(paste0(base_path, subs, "/", sampSet, "/")))
 (ext <- paste0("-", sampSet, "-", subs))
 res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
-annot<-readRDS("data/Annotations-virus/annot-virus-ext-2026-07-14.rds")
+annot<-readRDS(paste0("data/Annotations-", subs, "/annot-virus-ext-2026-07-14.rds"))
+annot |> group_by(tx_id) |> tally() |> filter(n>1)
+annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
 res<-lapply(res, function(x) left_join(annot, x))
 lapply(res, function(x) table(x$GOAnnotAvail))
 res<-lapply(res, function(x) isGOannot(x))
 
-file<-paste0("publication/deseq_glm_CountsContsOfInterest", ext, ".xlsx")
+file<-paste0("publication/deseq_glm_CountsContsOfInterest", ext, "-Aug2025.xlsx")
 tab<-xlsx::write.xlsx(res[[1]], file = file, sheet = names(res)[[1]])
 xlsx::write.xlsx(res[[2]], file = file, sheet = names(res)[[2]], append = T)
 xlsx::write.xlsx(res[[3]], file = file, sheet = names(res)[[3]], append = T)
@@ -118,7 +120,7 @@ df3<-df3 |> mutate(`Preferred Name` = case_when(locus_tag=="EPVG_00361"~"deoxyur
 df3<-df3<-df3 |> select(`Locus tag` = locus_tag, `Protein ID` = protein_id, `Gene/Product` = `Preferred Name`, `3h`:`24h`, everything()) 
 df3<-df3|> 
   select(-UniParc) |>
-  unite(func,c("GO_GO", "Subcellular location [CC]", "Function [CC]", "DNA binding"
+  tidyr::unite(func,c("GO_GO", "Subcellular location [CC]", "Function [CC]", "DNA binding"
   ),sep = ";", remove = F) |>
   mutate(func = gsub("NA", "", gsub(";NA", "", func)), .after = `Gene/Product`) |>
   rename(`Function` = func) |>
@@ -156,8 +158,8 @@ tab1<-df3 |>
   data_color(columns = `24h`,palette = br_gn, na_color="white",domain = c(-4, 4)) |>
   sub_missing(columns = c("3h","8h", "24h"))
 
-tab1 |>
-  gtsave("publication/Table2-check.png")
+#tab1 |>
+#  gtsave("publication/Table2-check.png")
 
 tab1 |>
   gtsave("publication/Table2-check.docx")
@@ -167,7 +169,7 @@ tab1 |>
 # Table 1 ---------
 ## Read in stuff 
 remove(list=ls())
-base_path <- path.expand("~/Documents/Github/Ehux_Ehv201/scratch/")
+base_path <- path.expand("~/Documents/Github/Ghux_Ehv201/scratch-Aug2025/")
 subs <- "host"
 sampSet <- "76samp" #
 res_path <- paste0(base_path, "host/76samp/")
@@ -175,15 +177,15 @@ res_path <- paste0(base_path, "host/76samp/")
 res<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 
 l.names<-names(res)
-lfc<-2
+lfc<-0
 padj<-0.05
 
 #tab deseq
 res2_deseq<-do.call(rbind,res)
 tabDESeq<-res2_deseq |> 
   #filter(padjIHW <= padj) |> 
-  dplyr::filter(padjIHW <= padj) |>
-  dplyr::filter(abs(log2FCshrink_ashr)>=lfc)  |> 
+  dplyr::filter(padjIHW < padj) |>
+  dplyr::filter(abs(log2FCshrink_ashr)>lfc)  |> 
   group_by(contrast, DIR) |> 
   tally() |> 
   pivot_wider(names_from = DIR, values_from = n) |>
@@ -199,10 +201,12 @@ if(sum(colnames(tabDESeq)=="DOWN")==1){
   tabDESeq<-tabDESeq |> mutate(DOWN = 0)
 }
 tabDESeq<-tabDESeq |> mutate(Total = DOWN + UP) |> select(-c(exp, cntl)) |> arrange(desc(Total)) |>
-  left_join(res2_deseq|> group_by(contrast, DEG=padjIHW <= padj & abs(log2FCshrink_ashr)>=lfc) |> tally(name = "unchanged") |> filter(DEG==F) |> select(contrast, unchanged))
+  left_join(res2_deseq|> group_by(contrast, DEG=padjIHW < padj & abs(log2FCshrink_ashr)>lfc) |> tally(name = "unchanged") |> filter(DEG==F) |> select(contrast, unchanged))
 
 tabDESeq<-tabDESeq|>select(contrast, `Downregulated` = DOWN, `Upregulated` = UP, Unchanged = unchanged)
-tabDESeq |> write_tsv("publication/Table1.tsv")
+tabDESeq<-tabDESeq |> ungroup() |> gt() 
+
+tabDESeq |> gtsave("publication/Table1-check.docx")
 
 
 # 12/26: replotting with all time points per KW's request by email.
@@ -219,12 +223,12 @@ conflicts_prefer(dplyr::filter)
 showtext::showtext_opts(dpi=300)
 subs <- "virus"
 sampSet <- "39samp"
-base_path<-"~/Documents/GitHub/Ehux_Ehv201/scratch/"
+base_path<-"~/Documents/GitHub/Ghux_Ehv201/scratch-Aug2025/"
 res_path <- paste0(base_path, subs, "/", sampSet, "/")
 (ext <- paste0("-", sampSet, "-", subs))
 
 # read in data
-dds <- readRDS(paste0(res_path, "deseq_dds", ext, ".rds"))
+dds <- readRDS(paste0(res_path, "deseq-dds", ext, ".rds"))
 rld_blind <- readRDS(paste0(res_path, "rld_blind", ext, ".rds"))
 vsd_blind <- readRDS(paste0(res_path, "vsd_blind", ext, ".rds"))
 #rld <- readRDS(paste0(res_path, "rld", ext, ".rds"))
@@ -505,31 +509,103 @@ col_fun_brgn<-colorRamp2(breaks = c(-3, 0, 3), colors = c(br_gn[1],br_gn[l1/2], 
   draw(ht_list)
   
 dev.off()
-}else if(sampSet=="29samp"){
-  # Order time points correctly for plots
-  lfc<-2
-  padj<-0.05
-  times <- c("3h", "8h", "24h")
-  
-  ann_colors = list(
-    Treatment = c(DMSO = trt_vir_cols[1], HHQ = trt_vir_cols[2]),
-    Time = c(
-      `3h` = grays[3],
-      `8h` = grays[4],
-      `24h` = grays[5]
-    )
-  )
-  
-  vir<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest_", sampSet, "_virus.rds"))
-  virDegs1<-lapply(vir, function(x) x |> dplyr::filter(padjIHW<=padj))
-  unlist(lapply(virDegs1, function(x) nrow(x)))
-  virDegs2<-lapply(virDegs1, function(x) x |> dplyr::filter(abs(log2FCshrink_ashr)>=lfc))
-  unlist(lapply(virDegs2, function(x) nrow(x)))
-  candidate_genes<-unique(unname(unlist(lapply(virDegs, function(x) x$locus_tag))))
-  sample_info<-read_tsv(paste0(base_path, "data/coldata_", sampSet, ".txt"))
-  virAnnot<-readxl::read_xlsx(paste0(base_path, "data/Annotations-virus/annot-virus-ext.xlsx"), sheet = "All")
-  candidate_genes2<-virAnnot |> dplyr::filter(locus_tag %in% candidate_genes) |> pull(accession)
-  
+ }else if(sampSet=="29samp"){
+   times <- c( "3h", "8h", "24h")
+   
+   # if t1-t4
+   
+   ann_colors = list(
+     Treatment = c(DMSO = trt_vir_cols[1], HHQ = trt_vir_cols[2]),
+     Time = c(
+       `3h` = grays[3],
+       `8h` = grays[4],
+       `24h` = grays[5]
+     )
+   )
+   
+   #mat <- assay(rld)
+   mat <- assay(rld_blind)
+   #mat <- assay(vsd_blind)
+   #rownames(mat)<-trans_cts[match(rownames(mat),trans_cts$locus_tag),]$gene
+   scaled_mat = t(scale(t(mat)))
+   
+   coldata <- read_tsv(paste0("data/coldata_", sampSet, ".txt"),
+                       show_col_types = FALSE)
+   df2 <- as.data.frame(colData(dds)[, c("treatment", "timePt")])
+   colnames(df2)[1] <- 'trt'
+   df2$timePt <- PrepNamesForPlots(timePt = df2$timePt)$timePt
+   # arrange by time
+   df2$timePt2 <- parse_number(gsub("h", "", df2$timePt))
+   df2<-df2 |> mutate(timePt2=ifelse(timePt2==45, 0.75, timePt2))
+   df2 <- df2 |> arrange(timePt2) |> dplyr::select(-timePt2)
+   #
+   df2 <- df2 |> dplyr::select(Treatment = trt, Time = timePt)
+   df2$Rep<-SplitSampleName(sample = rownames(df2))$rep
+   
+   mat<-mat[,rownames(df2)]
+   scaled_mat<-scaled_mat[,rownames(df2)]
+   matDist<-dist(mat)
+   hClustMat<-hclust(matDist, method = "complete")
+   #plot(hClustMat, labels = F)
+   
+   #abline(h = 5, col = "brown", lwd = 2) #
+   #abline(h = 10, col = "brown", lwd = 2) #
+   
+   #dend = as.dendrogram(hClustMat)
+   #library(dendextend)
+   br_gn<-colorRampPalette(c4a(palette= "brewer.br_bg"))(50)
+   names(ann_colors$Treatment)<-gsub("DMSO.DMSO", "DMSO", names(ann_colors$Treatment))
+   names(ann_colors$Treatment)<-gsub("HHQ.HHQ", "HHQ", names(ann_colors$Treatment))
+   pheatmap::pheatmap(scaled_mat,
+                      main = "Test",
+                      cluster_rows = T,
+                      show_rownames = F,
+                      cluster_cols = F,
+                      color = br_gn,
+                      annotation_col = df2[,-3],
+                      gaps_col = c(9,19,29), annotation_colors = ann_colors)
+   
+   #sanity check
+   #apply(scaled_mat, MARGIN = 1, mean) %>%                          # calculate the mean per row
+   #hist(., main = "", xlab = "Z-score values", col = "dodgerblue2")  
+   #make names prettier
+   newLabs<-SplitSampleName(sample = colnames(scaled_mat)) |> mutate(NewName = paste0("Rep ", rep))
+   
+   
+   names(trt_vir_cols)<-c("DMSO", "HHQ")
+   
+   # change params globally
+   ht_opt(legend_border = "black")
+   
+   remove(l1); l1<-length(br_gn);
+   col_fun_brgn<-colorRamp2(breaks = c(-3, 0, 3), colors = c(br_gn[1],br_gn[l1/2], br_gn[l1]))
+   
+   #ht_opt(RESET = TRUE)
+   
+#   # Order time points correctly for plots
+#  lfc<-0
+#   padj<-0.05
+#   times <- c("3h", "8h", "24h")
+#   
+#   ann_colors = list(
+#     Treatment = c(DMSO = trt_vir_cols[1], HHQ = trt_vir_cols[2]),
+#     Time = c(
+#       `3h` = grays[3],
+#       `8h` = grays[4],
+#       `24h` = grays[5]
+#     )
+#   )
+#   
+#   vir<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest-", sampSet, "-virus.rds"))
+#   virDegs1<-lapply(vir, function(x) x |> dplyr::filter(padjIHW<padj))
+#   unlist(lapply(virDegs1, function(x) nrow(x)))
+#   virDegs2<-lapply(virDegs1, function(x) x |> dplyr::filter(abs(log2FCshrink_ashr)>lfc))
+#   unlist(lapply(virDegs2, function(x) nrow(x)))
+#   candidate_genes<-unique(unname(unlist(lapply(virDegs2, function(x) x$locus_tag))))
+#   sample_info<-read_tsv(paste0("data/coldata_", sampSet, ".txt"))
+#   virAnnot<-readxl::read_xlsx(paste0("data/Annotations-virus/annot-virus-ext.xlsx"), sheet = "All")
+#   candidate_genes2<-virAnnot |> dplyr::filter(locus_tag %in% candidate_genes) |> pull(accession)
+#   
 # MyPheatmapClust(
 #   mat,
 #   main = "Test",
@@ -543,71 +619,10 @@ dev.off()
 #   annotation_colors = ann_colors,
 #   cutree_rows = 5
 # )
-pheatmap::pheatmap(scaled_mat,
-                    main = "Test",
-                    cluster_rows = T,
-                    show_rownames = F,
-                    cluster_cols = F,
-                    color = br_gn,
-                    annotation_col = df2[,-3],
-                    gaps_col = c(9,19), annotation_colors = ann_colors)
+
 
 
   
-# plot complex heatmaps
-#ha<-HeatmapAnnotation(
-#  Treatment = df2$Treatment, Time = df2$Time,
-#  col = ann_colors,
-#  annotation_legend_param = list(Treatment = list(title = "Treatment"), 
-#                                 Time = list(title = "Time", at = times)),
-#  annotation_name_side = "left",which = "column")
-
-ht<-ComplexHeatmap::Heatmap(
-  scaled_mat,
-  col = col_fun_brgn,
-  column_title = "Samples",
-  column_title_side = "bottom",
-  row_title = "Genes",
-  show_row_names = F,
-  show_column_names = F,
-  column_names_gp = gpar(fontsize = 8),
-  #column_labels = newLabs$NewName,
-  row_names_gp = gpar(fontsize = 4),
-  show_row_dend = F,
-  cluster_columns = F,
-  cluster_rows = T,
-  heatmap_legend_param = list(title = "", at = c(-3,-2, -1, 0, 1,2,3),legend_height = unit(6, "cm")),
-  top_annotation = ha, 
-  row_km_repeats = 100,
-  column_km_repeats = 100,
-  split = 3,gap = unit(3, "mm"),
-  show_heatmap_legend = T
-  #column_split = 2
-)
-draw(ht)
-htb<-ComplexHeatmap::Heatmap(
-  scaled_mat,
-  col = col_fun_brgn,
-  column_title = "Samples",
-  column_title_side = "bottom",
-  row_title = "Genes",
-  show_row_names = F,
-  show_column_names = F,
-  column_names_gp = gpar(fontsize = 8),
-  #column_labels = newLabs$NewName,
-  row_names_gp = gpar(fontsize = 4),
-  show_row_dend = F,
-  cluster_columns = T,
-  cluster_rows = T,
-  heatmap_legend_param = list(title = "", at = c(-3,-2, -1, 0, 1,2,3),legend_height = unit(6, "cm")),
-  top_annotation = ha, 
-  row_km_repeats = 100,
-  column_km_repeats = 100,
-  split = 3,gap = unit(3, "mm"),
-  column_split = 3,
-  show_heatmap_legend = T
-  #column_split = 2
-)
 
 ha1<-HeatmapAnnotation(
   Treatment =df2 |> dplyr::filter(Time == "3h") |> pull(Treatment), Time = df2 |> dplyr::filter(Time == "3h") |> pull(Time),
@@ -717,7 +732,7 @@ ht_list = ht1+ ht2+ht3
 draw(ht_list)
 #res = 150L
 
-filepath<-paste0(res_path, "figs/VirZscoreHeatMap_", sampSet)
+filepath<-paste0("publication/VirZscoreHeatMap_", sampSet)
 svglite::svglite(paste0(filepath, ".svg"),width = 9, height = 7)
 draw(ht_list)
 dev.off()
@@ -735,14 +750,39 @@ draw(ht_list)
 dev.off()
 
 # SOM Fig S5 ---------
+remove(list=ls())
+gc()
+source("dge/Functions.R")
+source("dge/plot_funcs.R")
+library(ComplexHeatmap)
+library(conflicted)
+library(DESeq2)
+library(tidyverse)
+conflicts_prefer(dplyr::filter)
+showtext::showtext_opts(dpi=300)
+subs <- "virus"
+sampSet <- "39samp"
+base_path<-"~/Documents/GitHub/Ghux_Ehv201/scratch-Aug2025/"
+res_path <- paste0(base_path, subs, "/", sampSet, "/")
+(ext <- paste0("-", sampSet, "-", subs))
+
+# read in data
+dds <- readRDS(paste0(res_path, "deseq-dds", ext, ".rds"))
+rld_blind <- readRDS(paste0(res_path, "rld_blind", ext, ".rds"))
+vsd_blind <- readRDS(paste0(res_path, "vsd_blind", ext, ".rds"))
+#rld <- readRDS(past
 mat <- assay(rld_blind)
 metadata <- colData(dds)[,-1]
 library(PCAtools)
 nprop <-0.95
 ntop <- round(nrow(dds)*nprop)
 
-annot<-annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds") |>
-  dplyr::select(tx_id, locus_tag, rowLabel, everything())
+annot<-readRDS(paste0("data/Annotations-", subs, "/annot-virus-ext-2026-07-14.rds"))
+annot |> group_by(tx_id) |> tally() |> filter(n>1)
+annot<-annot |> mutate(rowLabel = gsub("JF974311.1_cds_", "", tx_id), .after = locus_tag)
+
+#annot<-annot<-readRDS("data/Annotations-virus/annot-virus-edgeR.rds") |>
+#  dplyr::select(tx_id, locus_tag, rowLabel, everything())
 
 p <- PCAtools::pca(
   mat = mat,
@@ -849,7 +889,7 @@ p1
 #part C
 salmon_gene_quants<-read_tsv(paste0(res_path, "tables/salmon-output-processed-filt", ext,".tsv.gz")) 
 tib <- tibble(sample_name = unique(salmon_gene_quants$sample_name),SplitSampleName(unique(salmon_gene_quants$sample_name)))
-genes_keep_final<-readRDS(paste0(res_path, "genes_keep_final2", ext, ".rds"))
+genes_keep_final<-readRDS(paste0(res_path, "genes-keep-final2", ext, ".rds"))
 salmon_gene_quants_filt <- 
   salmon_gene_quants |>
   dplyr::filter(tx_id %in% (
@@ -875,27 +915,28 @@ partC<-salmon_gene_quants_filt |>
       "Cochin", "serif"
     )) |>
   fmt_scientific(columns = `Reads Mapped (Millions)`)
-library(patchwork)
 
-filepath<-paste0("publication/SOM-Fig5-PartC-", sampSet)
-svglite::svglite(paste0(filepath, ".svg"),width = 9, height = 7)
-salmon_gene_quants_filt |>
-  group_by(timePt) |> 
-  summarise(`Reads Mapped (Millions)` = round(sum(n_reads),2)) |> 
-  ungroup() |> 
-  dplyr::rename(`Time Point` =  timePt) |>
-  mutate(`Time Point` = c("45 min", "3 hr", "8 hr", "24 hr")) |>
-  mutate(Prop = round(`Reads Mapped (Millions)`/sum(`Reads Mapped (Millions)`),7)) |>
-  mutate(`% of total` = round(Prop*100, 2)) |>
-  select(-Prop) |>
-  gt() |>  opt_stylize(add_row_striping = TRUE, style = 1) |>
-  opt_table_font(
-    font = list(
-      google_font(name = "Roboto"),
-      "Cochin", "serif"
-    )) |>
-  fmt_scientific(columns = `Reads Mapped (Millions)`)
-dev.off()
+#library(patchwork)
+
+#filepath<-paste0("publication/SOM-Fig5-PartC-", sampSet)
+#svglite::svglite(paste0(filepath, ".svg"),width = 9, height = 7)
+#salmon_gene_quants_filt |>
+#  group_by(timePt) |> 
+#  summarise(`Reads Mapped (Millions)` = round(sum(n_reads),2)) |> 
+#  ungroup() |> 
+#  dplyr::rename(`Time Point` =  timePt) |>
+#  mutate(`Time Point` = c("45 min", "3 hr", "8 hr", "24 hr")) |>
+#  mutate(Prop = round(`Reads Mapped (Millions)`/sum(`Reads Mapped (Millions)`),7)) |>
+#  mutate(`% of total` = round(Prop*100, 2)) |>
+#  select(-Prop) |>
+#  gt() |>  opt_stylize(add_row_striping = TRUE, style = 1) |>
+#  opt_table_font(
+#    font = list(
+#      google_font(name = "Roboto"),
+#      "Cochin", "serif"
+#    )) |>
+#  fmt_scientific(columns = `Reads Mapped (Millions)`)
+#dev.off()
 #C
 partC |>
   gtsave(paste0("publication/SOM-Fig5-C-", sampSet, ".png"), expand = 10)
@@ -927,13 +968,13 @@ remove(list=ls())
 showtext::showtext_opts(dpi=300)
 source("dge/Functions.R")
 source("dge/plot_funcs.R")
-base_path <- path.expand("~/Documents/Github/Ghux_Ehv201/scratch/")
+base_path <- path.expand("~/Documents/Github/Ghux_Ehv201/scratch-Aug2025/")
 subs <- "host"
 sampSet <- "76samp" #
 (res_path <- path.expand(paste0(base_path, subs, "/", sampSet, "/")))
 (ext <- paste0("-", sampSet, "-", subs))
 annot<-data.table::fread(paste0("data/Annotations-", subs, "/annot-host-less-2026-07-21.tsv.gz"))
-glm_subset<-readRDS(paste0("scratch/host/76samp/deseq_glm_CountsContsOfInterest", ext, ".rds"))
+glm_subset<-readRDS(paste0(res_path, "deseq_glm_CountsContsOfInterest", ext, ".rds"))
 core_genes<-c("EMIHUDRAFT_436073", "EMIHUDRAFT_436849", "EMIHUDRAFT_434619", 
               "EMIHUDRAFT_453191", "EMIHUDRAFT_212395", "EMIHUDRAFT_106524", 
               "EMIHUDRAFT_434980", "EMIHUDRAFT_356402", "EMIHUDRAFT_219520", 
@@ -967,7 +1008,7 @@ temp2<-lapply(unique(core_genes), function(g){
   
 })
 temp2b<-do.call(rbind, temp2)
-
+#temp2b |> clipr::write_clip()
 remove(temp, temp2)
 conts2<-names(glm_subset)[grepl("^HHQ_inf_t(1|2|3|4)vDMSO_inf",names(glm_subset))]
 conts2_info<-lapply(conts2, function(x) glm_subset[[x]] |> filter(locus_tag %in% core_genes))
@@ -983,17 +1024,18 @@ temp2<-lapply(unique(core_genes), function(g){
   
 })
 temp2c<-do.call(rbind, temp2)
-temp
-temp2c<-left_join(temp2, annot)
+#temp2c |> clipr::write_clip()
+
+temp2c<-left_join(temp2c, annot)
+
 
 
 
 # SOM Data File 5 ---------
 
-
-annot<-readRDS("data/Annotations-host/annot-host-ext2-2026-07-11.rds")
+annot<-read_tsv("data/Annotations-host/annot-host-less-2026-07-21.tsv.gz")
 nrow(annot) #37334
-keep_these<-readRDS("scratch/host/76samp/genes_keep_final2_76samp_host.rds")
+keep_these<-readRDS("scratch/host/76samp/genes-keep-final2-76samp-host.rds")
 annot<-annot |> filter(locus_tag %in% keep_these)
 nrow(annot) #28069
 annot<-NAColOmit(annot)
@@ -1004,7 +1046,7 @@ annot<-annot |> distinct()
 #summary(NAPerRow(annot) |> pull(TotalNAs))
 annot<-NAPerRow(annot)
 annot |> group_by(GOAnnotAvail) |> tally(sort=T)
-annot |> select(tx_id, locus_tag,rowLabel, tx_name, biotype, protein_id,)
+#annot |> select(tx_id, locus_tag,rowLabel, tx_name, biotype, protein_id)
 #legend<-tibble(`Column Name` = colnames(host_annot), 
 #               `Description` = c("Genkank transcript ID","locus tag (ncbi). Note, if more than one transcript exists for a given locus tag, a '-' was added at the end followed by a number to differentiate them"))
 
@@ -1352,8 +1394,8 @@ res2 <- mclapply2(res, function(x) {
         -log10(pvalueRaw),
       .after = locus_tag
     ) |>
-    mutate(DE = padjIHW <= padj&
-             abs(log2FCshrink_ashr) >= lfc,
+    mutate(DE = padjIHW < padj&
+             abs(log2FCshrink_ashr) > lfc,
            .after = Ranking) |>
     group_by(locus_tag) |>
     dplyr::slice(1) |>

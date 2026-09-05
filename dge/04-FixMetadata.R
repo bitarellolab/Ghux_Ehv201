@@ -1,7 +1,7 @@
 #!/opt/R/bin/Rscript
 # Make sample subsets
 
-# See also: 03-MakeMetadata.R (for salmon runs)
+# See also: 01-MakeMetadata.R (for salmon runs)
 
 # Goals:
 
@@ -19,7 +19,7 @@ library(tidyverse)
 # base path
 #(base_path <- path.expand("/Users/bbitarello/Library/CloudStorage/GoogleDrive-barbarabitarello@gmail.com/My Drive/rna-seq-host-virus/data_and_res_gh_repo/"))
 # Salmon path
-(base_path <- path.expand("~/Documents/GitHub/Ehux_Ehv201/"))
+(base_path <- path.expand("~/Documents/GitHub/Ghux_Ehv201/"))
 # adjust this to your actual file path
 (base_path2 <- path.expand("~/Documents/Ehux-for-pub/salmonQ-v1.10.3/"))
 #(base_path2 <- path.expand("~/Documents/Ehux-for-pub/salmonQ-v1.10.3"))

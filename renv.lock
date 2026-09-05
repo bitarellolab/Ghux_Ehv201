@@ -10216,8 +10216,8 @@
     },
     "tximport": {
       "Package": "tximport",
-      "Version": "1.38.2",
-      "Source": "Bioconductor",
+      "Version": "1.37.1",
+      "Source": "Local",
       "Title": "Import and summarize transcript-level estimates for transcript- and gene-level analysis",
       "Description": "Imports transcript-level abundance, estimated counts and transcript lengths, and summarizes into matrices for use with downstream gene-level analysis packages. Average transcript length, weighted by sample-specific transcript abundance estimates, is provided as a matrix which can be used as an offset for different expression of gene-level counts.",
       "Author": "Michael Love [cre,aut], Charlotte Soneson [aut], Mark Robinson [aut], Rob Patro [ctb], Andrew Parker Morgan [ctb], Ryan C. Thompson [ctb],  Matt Shirley [ctb], Avi Srivastava [ctb]",
@@ -10251,11 +10251,8 @@
       "RoxygenNote": "7.2.3",
       "NeedsCompilation": "no",
       "Encoding": "UTF-8",
-      "git_url": "https://git.bioconductor.org/packages/tximport",
-      "git_branch": "RELEASE_3_22",
-      "git_last_commit": "1c6a0bb",
-      "git_last_commit_date": "2025-12-19",
-      "Repository": "Bioconductor 3.22"
+      "RemoteType": "local",
+      "RemoteUrl": "~/Downloads/tximport"
     },
     "tzdb": {
       "Package": "tzdb",

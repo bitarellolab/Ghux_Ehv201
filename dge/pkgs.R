@@ -36,6 +36,11 @@ if(FALSE){#run once
 remotes::install_github("mritchielab/GlimmaV2", ref = "f6dad6be2a1e29f67a3553d1317b909b336e52b4")
 #library(Glimma)
 }
+
+#tximport
+#renv::install("~/Downloads/tximport/")
+library(tximport, lib.loc = "~/Library/R/Rlibs/tximport1.37.1/")
+packageVersion("tximport")
 ## routine, list bioconductor packages ----
 bioconductor_pks<-c(
   "SummarizedExperiment",

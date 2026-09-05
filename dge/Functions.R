@@ -243,67 +243,113 @@ isGOannot <- function(x = x,
 # Find Top Degs and plot Volcano ----
 VolcanoFunc <- function(cont = NULL,
                         padj = 0.05,
-                        lfc = 2) {
-  cat("contrast: ", cont, "\n")
+                        lfc = c(2, 1.5), subs = "virus") {
+  message("contrast: ", cont)
+ # message("lfc: ", lfc)
   df <- glm_subset[[cont]] |>
     filter(contrast == cont) |>
-    arrange(padjIHW) |>
-    mutate(threshold_OE = padjIHW <= padj &
-             abs(log2FCshrink_ashr) >= lfc)
+    arrange(desc(abs(log2FCshrink_ashr))) |>
+    mutate(thresh_padjlfc = padjIHW < padj &
+             abs(log2FCshrink_ashr) > lfc[1]) |>
+    mutate(thresh_padj = padjIHW < padj & abs(log2FCshrink_ashr) > lfc[2])
   #
   df |>
-    group_by(threshold_OE == T) |> tally()
+    group_by(thresh_padjlfc == T) |> tally()
+  df |>
+    group_by(thresh_padj == T) |> tally()
   #
-  df <- df |> dplyr::select(threshold_OE, everything())
-  n0 <- df |> filter(threshold_OE == T) |> nrow()
+  df <- df |> dplyr::select(contains("thresh"), everything())
+  n0 <- df |> filter(thresh_padjlfc == T) |> nrow()
+  n00<- df |> filter(thresh_padj == T) |> nrow()
   df <- df |> mutate(genelabels = "")
-  if (n0 != 0) {
-    n1 <- min(c(n0, 10))
-    
-    df$genelabels[1:n1] <- df$rowLabel[1:n1]
+  if (n00<=15){
+    n1<-n00
+    }else if (n0 > 15) {
+    #n1 <- min(c(n0, 10))
+    n1<-15
+  }else if (n0 == 0 & n00!=0) {
+    n1<-n00
   }
+  
+  df<-df |> arrange(padjIHW) 
+    df$genelabels[1:n1] <- df$rowLabel[1:n1]
+    df$genelabels[(n1+1):nrow(df)] <- ""
+  
+  
   xmax<-sort(abs(df$log2FCshrink_ashr),decreasing = T)[1]
   #volcano: https://hbctraining.github.io/DGE_workshop/lessons/06_DGE_visualizing_results.html
-  
+  df2<-df |> 
+    select(log2FCshrink_ashr,thresh_padjlfc, thresh_padj, genelabels, padjIHW) |> 
+    mutate(group = ifelse(thresh_padjlfc==T, paste0("p < 0.05;|lfc|>", lfc[1]), ifelse(thresh_padj==T, paste0("p < 0.05;|lfc|>", lfc[2]), ifelse(padjIHW>padj, paste0("p > ", padj), ""))))
   p1 <- ggplot(df, aes(x = log2FCshrink_ashr, y = -log10(padjIHW))) +
+    xlim(-1*xmax, 1*xmax)+
     geom_point(
-      data = df |> filter(threshold_OE == T),
-      colour = okabe[8],
-      size = 1
-    ) +
-    geom_point(
-      data = df |> filter(threshold_OE == F),
+      data = df |> filter(thresh_padj == F),
       colour = okabe[9],
-      size = 1
-    ) +
+     # fill = okabe[9],
+      size = 0.9,
+      alpha = 0.3) +
+    bb_theme()
+  p1<-p1+ ylab(expression(-log10(P))) +
+    xlab(expression(log2~(FC))) +
+    ggtitle(cont)
+   p1<- p1 + geom_point(data = df |> filter(thresh_padj == T),
+      colour = okabe[2],
+     # fill = okabe[2],
+      size = 0.9,
+      alpha = 0.5
+    ) 
+   p1<-p1+
+    geom_point(
+      data = df |> filter(thresh_padjlfc == T),
+      colour = okabe[8],
+      size = 0.9,
+      alpha = 0.5
+      ) 
     # geom_point(aes(colour = threshold_OE)) +
-    ylab("-log10(padj)") +
-    xlab("log2FC") +
+   
+    p1<-p1+
+      geom_text_repel(aes(label = genelabels),
+                      col = 'black',
+                      size = 1.5, seed=10, min.segment.length = 0,  max.overlaps = 15, segment.colour = "gray") 
+   
+    nL<-length(unique(df2$group))
+    if(nL==2){
+      cols<-c(okabe[2], okabe[9])
+      }else{
+        cols<-c(okabe[2], okabe[8], okabe[9])}
+    p2<-df2 |> ggplot(aes(x = log2FCshrink_ashr, y = -log10(padjIHW), color = group)) + geom_point(aes(color=group), alpha=0.4) + 
+      scale_color_manual(values = cols) + bb_theme() + theme(legend.position = "bottom")
+    p2<-p2+xlim(-1*xmax, 1*xmax) 
+    p2<- p2 + ylab(expression(-log10(P))) +
+      xlab(expression(log2~(FC))) +
+      ggtitle(cont) 
+    p2<-p2 + geom_text_repel(aes(label = genelabels),
+                         col = 'black',
+                         size = 1.5,nudge_y = -0.001,max.overlaps = 15,min.segment.length = 0, seed=16,segment.colour = "gray") 
+    p2<-p2 + geom_hline(yintercept = -log10(0.05), lty=2, linewidth = 0.2, colour = "gray")
     
-    xlim(-1*xmax, 1*xmax) +
-    ggtitle(paste0("Top 10 DEGs (", cont, ")")) +
-    geom_text_repel(aes(label = genelabels),
-                    col = 'black',
-                    size = 2) +
     #geom_vline(xintercept = -1, lty=okabe[8]) +
     # scale_color_manual(c(okabe[9],okabe[8])) +
-    bb_theme() +
-    theme(legend.position = "none")
-  p1 <- p1 +
-    geom_vline(xintercept = -1*lfc,
-               lty = 2,
-               color = okabe[2]) +
-    geom_vline(xintercept = 1*lfc,
-               lty = 2,
-               color = okabe[2])
   
-  print(p1)
-  ggsave(paste0(res_path, "figs/volcano_", cont, ext, ".pdf"), device =
-           cairo_pdf)
+  #p1 <- p1 +
+    #geom_vline(xintercept = -1*lfc,
+    #           lty = 2,
+    #           color = okabe[9]) +
+    #geom_vline(xintercept = 1*lfc,
+    #           lty = 2,
+    #           color = okabe[9])
+  
+  #print(p1)
+    print(p2)
+  #ggsave(paste0(res_path, "figs/volcano_", cont, ext, ".pdf"), device =
+   #        cairo_pdf)
+  message("File saved to figs/volcano_", cont, ext, ".svg")
+  ggsave(paste0(res_path, "figs/volcano_", cont, ext, ".svg"), width = 8)
   
 }
 
-lapply
+#lapply
 makeCont <- function(i = NULL) {
   comb_i <- combinations[, i]
   cond1 <- gs[comb_i[1]]
@@ -431,7 +477,12 @@ save_pheatmap_png <- function(x,
 getsizes <- function() {
   z <- sapply(ls(envir = globalenv()), function(x)
     object.size(get(x)))
-  (tmp <- as.matrix(rev(sort(z))[1:10]))
+  mat<-as.matrix(as.matrix(rev(sort(z))))
+  mat[,1]<-as.matrix(as.matrix(mat[,1]/(1000^2)))
+  colnames(mat)<-"Mb"
+  mat
+ 
+  #(tmp <- as.matrix(rev(sort(z)))[1:10,]
 }
 
 
