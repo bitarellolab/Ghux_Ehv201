@@ -1,4 +1,5 @@
-# Plots for Publication
+#!/opt/R/bin/Rscript
+## Plots for Publication
 source("dge/Functions.R")
 source("dge/plot_funcs.R")
 library(conflicted)
