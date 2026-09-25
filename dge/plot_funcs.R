@@ -157,7 +157,8 @@ bb_theme <-  function() {
   )
 }
 
-
+library(tidyverse)
+set_theme(bb_theme())
 
 #-----rstudio-font-settings
 if(TRUE){

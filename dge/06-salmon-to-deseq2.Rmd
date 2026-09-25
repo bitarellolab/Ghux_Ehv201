@@ -15,7 +15,7 @@ output:
 #Setup
 knitr::opts_knit$set(
   root.dir = '/Users/bbitarello/Documents/GitHub/Ghux_Ehv201/', 
-  error = T,
+  error = F,
   cache = F, 
   echo = T,
   fig.showtext = TRUE,
@@ -23,7 +23,7 @@ knitr::opts_knit$set(
   message = FALSE,
   collapse = TRUE,
   dev = 'pdf')
-#avoid RAM issues with xlsx package
+# Avoid RAM issues with xlsx package
 options(java.parameters = "-Xmx10000m") 
 
 # Packages
@@ -35,7 +35,7 @@ library(tidyverse)
 library(DESeq2)
 library(ashr)
 ## Fonts and figures settings
-#source("~/Documents/GitHub/Ghux_Ehv201/dge/pkgs.R")
+#source("~/Documents/GitHub/Ghux_Ehv201/dge/pkgs.R") #only run once for the project to activate renv
 source("~/Documents/GitHub/Ghux_Ehv201/dge/Functions.R")
 source("~/Documents/GitHub/Ghux_Ehv201/dge/plot_funcs.R")
 ## Package conflicts
@@ -58,11 +58,11 @@ setwd(base_path)
 
 ## Options: 
 #subs <- "virus"; sampSet <- "39samp" #
-subs <- "virus"; sampSet <- "29samp"  #
+#subs <- "virus"; sampSet <- "29samp"  #
 #subs <- "virus"; sampSet <- "20samp" #
 #subs <- "virus"; sampSet <- "10samp" #
 #subs <- "host";  sampSet <- "76samp" #
-#subs <- "host";  sampSet <- "79samp" #
+subs <- "host";  sampSet <- "79samp" #
 
 #res_path <- paste0(base_path, "scratch/", subs, "/", sampSet, "/")
 res_path <- paste0(base_path, "scratch-Aug2025/", subs, "/", sampSet, "/")
@@ -340,12 +340,12 @@ salmon_gene_quants_filt <-
   salmon_gene_quants |>
   dplyr::filter(tx_id %in% (
     tx_to_gene |>
-      dplyr::filter(locus_tag %in% genes_keep_final) |>
+      dplyr::filter(ensembl_gene_id %in% genes_keep_final) |>
       pull(tx_id)
   ))
 salmon_gene_quants_filt <- left_join(salmon_gene_quants_filt, tib)
 
-write_tsv(salmon_gene_quants, file=paste0(res_path, "tables/salmon-output-processed-filt", ext, ".tsv"))
+write_tsv(salmon_gene_quants_filt, file=paste0(res_path, "tables/salmon-output-processed-filt", ext, ".tsv"))
 system(glue::glue("gzip -f --best {res_path}tables/salmon-output-processed-filt{ext}.tsv"))
 
 #salmon_gene_quants_filt <- data.table::fread(paste0(res_path, #"salmon_gene_quants_filt", ext, ".gz")) |> as_tibble()
@@ -469,7 +469,7 @@ gc()
 ## Decide which fit to use for deseq(): local vs parammetric
 ## https://support.bioconductor.org/p/81094/
 ## Decide about size factors method: poscounts vs ratio
-if(TRUE){#run once
+if(FALSE){#run once
 ## See deseq2 documentation.
 ## fits<-c('local', 'parametric', 'mean', 'glmGamPoi')
 fits<-c('local', 'parametric')
@@ -1460,7 +1460,7 @@ tab<-xlsx::write.xlsx(tb.list[[1]], file = file, sheet = names(tb.list)[1])
 for(i in 2:7){
   xlsx::write.xlsx(tb.list[[i]], file = file, sheet = names(tb.list)[i], append=T)
 }
-
+}
 tab_header<-paste0("Table 1. DEGs per contrast (", subs, ", ", sampSet, ")")
 padj<-0.05
 #lfc<-2
@@ -1503,7 +1503,7 @@ tab1 <- tab0  |> gt() |>
 tab1
 tab1 |>
   gtsave(paste0(res_path, #"tables/DEGsPerContOfInterestp",padj,"lfc", lfc, ".png"),expand = 12)
-  "tables/DEGsPerContOfInterestp",padj,"lfc", lfc, ".docx"))
+  "tables/DEGsPerContOfInterestp",padj,"lfc", lfc, ext, ".docx"))
 saveRDS(tab1, paste0("data/DEGsPerContOfInterest",ext, ".rds"))
 
 # End of run once -------
@@ -1539,10 +1539,12 @@ test2<-lapply(glm_subset, function(x){
 
 
 #custom function
+if(FALSE){
 if(subs=="virus"){
 lapply(subsetCL, function(x) VolcanoFunc(cont = x, lfc = c(1,0), subs = subs))
 }else{
   lapply(subsetCL, function(x) VolcanoFunc(cont = x, lfc = c(2,1), subs = subs))
+}
 }
 ## End ---
 sessionInfo()

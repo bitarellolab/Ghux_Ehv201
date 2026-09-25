@@ -41,6 +41,85 @@ write_tsv(sample_meta, paste0(base_path,"data/sampleTable_80samp-fix.txt"))
 }else{
 sample_meta<-read_tsv(paste0(base_path,"data/sampleTable_80samp-fix.txt")) 
 }
+
+# 80 samp ------------------ -----------------
+sampSet <- "80samp"
+
+sample_meta80 <- sample_meta 
+sample_meta80 <- tibble(sample_meta80)
+
+write_tsv(sample_meta80, paste0(base_path,"data/sampleTable_", sampSet, ".txt"))
+
+# Fix salmon files sample names
+# Reason: some sequencing runs were labelled incorrectly. This script fixes that.
+
+
+salmon_files80 <-
+  file.path(paste0(base_path2,
+                   sample_meta80$names,
+                   "/quant.sf")) |>
+  setNames(sample_meta80$names)
+# salmon quant files labelled with these old names actually belong to the 
+#samples listed in names_to_replace_new. E.g. sample HHQ_inf_t4_4  quant.sf is 
+#saved as DMSO_cntl_t1_1/quant.sf
+
+old_names <- names(salmon_files80)
+new_names <- old_names
+names_to_replace_old <- c(
+  "DMSO_cntl_t1_1",
+  "DMSO_inf_t1_1",
+  "HHQ_cntl_t2_2",
+  "HHQ_inf_t2_2",
+  "DMSO_cntl_t3_3",
+  "DMSO_inf_t3_3",
+  "HHQ_cntl_t4_4",
+  "HHQ_inf_t4_4"
+)
+
+names_to_replace_new <- c(
+  "HHQ_inf_t4_4",
+  "HHQ_cntl_t4_4",
+  "DMSO_inf_t3_3",
+  "DMSO_cntl_t3_3",
+  "HHQ_inf_t2_2",
+  "HHQ_cntl_t2_2",
+  "DMSO_inf_t1_1",
+  "DMSO_cntl_t1_1"
+)
+
+new_names[unlist(lapply(names_to_replace_old, function(x)
+  which(old_names == x)))] <- names_to_replace_new
+
+# assign
+names(salmon_files80) <- new_names
+
+# check
+length(salmon_files80) == nrow(sample_meta80)
+
+# coldata for deseq
+#reorder
+salmon_files80 <- salmon_files80[sample_meta80$names]
+coldata80 <- data.frame(salmon_files80, sample_meta80)
+colnames(coldata80) <- gsub("salmon_files", "files", colnames(coldata80))
+
+#check
+names(salmon_files80)==sample_meta80$names
+
+# save files
+write_tsv(coldata80, paste0(base_path,"data/coldata_", sampSet, ".txt"))
+#write_tsv(coldata, paste0(base_path,"data/coldata_", sampSet, "salmonv1.10.3.txt"))
+saveRDS(salmon_files79, paste0(base_path, "data/salmon_files_", sampSet, ".rds"))
+#saveRDS(salmon_files, paste0(base_path, "data/salmon_files_", sampSet, "salmonv1.10.3.rds"))
+
+# For box folder
+
+coldata80$files80<-gsub("/Users/bbitarello/Documents/Ehux-for-pub/", "Bitarello-FilesForPublication/raw-files/", coldata80$files80)
+colnames(coldata80)[1]<-"files"
+# save file
+write_tsv(coldata80, paste0(base_path,"data/salmon-files-", sampSet, ".tsv"))
+
+
+
 # 79samp  ------------------ ------------------
 sampSet <- "79samp"
 if(sampSet == "79samp"){
@@ -207,11 +286,9 @@ saveRDS(salmon_files77, paste0(base_path, "data/salmon_files_", sampSet, ".rds")
 sampSet <- "76samp"
 
 (samples_to_remove <- c(
-  "HHQ_cntl_t1_3",
-  #see fastp results
-  "DMSO_inf_t2_1",
-  #see PCA with 79samp
-  "DMSO_cntl_t2_1", #see PCA with 79samp
+  "HHQ_cntl_t1_3", #see fastp results
+  "DMSO_inf_t2_1",#see PCA with 79samp. Outlier confirmed in two separate runs.
+  "DMSO_cntl_t2_1", #see PCA with 79samp. Outlier confirmed in two separate runs.
   "DMSO_cntl_t1_1" # pers. comm. A. Platt//Remove this extra one due to broken flask 
 ))
 
